@@ -1,8 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import 'supabase_service.dart';
-import 'secure_storage_service.dart'; // BARU
+import 'secure_storage_service.dart';
 
 class AppState extends ChangeNotifier {
   final _api = SupabaseService();
@@ -16,7 +17,10 @@ class AppState extends ChangeNotifier {
   String? _errorMessage;
 
   String? get errorMessage => _errorMessage;
-  void clearError() { _errorMessage = null; notifyListeners(); }
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
 
   bool get isLoading => _isLoading;
   ThemeMode get themeMode => _themeMode;
@@ -132,7 +136,6 @@ class AppState extends ChangeNotifier {
   // ==========================================
   Future<void> signOut() async {
     await _api.signOut();
-    // ✅ Hapus token dari Keychain/Keystore juga
     await SecureStorageService.clearAll();
     _clearLocalState();
   }
@@ -148,6 +151,45 @@ class AppState extends ChangeNotifier {
   }
 
   // ==========================================
+  // UPDATE PROFILE
+  // ==========================================
+  Future<void> updateProfile({
+    required String username,
+    required String birthDate,
+    required String location,
+    File? avatarFile,
+    String? avatarEmoji,
+  }) async {
+    try {
+      String? newAvatarUrl;
+      // Upload foto dulu jika ada, kalau tidak ada foto tapi user memilih
+      // salah satu avatar emoji preset, pakai itu.
+      if (avatarFile != null) {
+        newAvatarUrl = await _api.uploadAvatar(avatarFile);
+      } else if (avatarEmoji != null) {
+        newAvatarUrl = avatarEmoji;
+      }
+
+      final updated = await _api.updateProfile(
+        username: username,
+        birthDate: birthDate,
+        location: location,
+        avatarUrl: newAvatarUrl,
+      );
+
+      // Merge hasil update ke _userProfile lokal agar langsung reaktif
+      _userProfile = {
+        ...?_userProfile,
+        ...updated,
+      };
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error updating profile: $e');
+      rethrow;
+    }
+  }
+
+  // ==========================================
   // ACTIONS & MUTATIONS
   // ==========================================
   Future<void> toggleFavorite(String productId) async {
@@ -156,11 +198,15 @@ class AppState extends ChangeNotifier {
       final product = _products[index];
       final newFavState = !product.isFavorite;
       product.isFavorite = newFavState;
+      product.favoritesCount += newFavState ? 1 : -1;
+      if (product.favoritesCount < 0) product.favoritesCount = 0;
       notifyListeners();
       try {
         await _api.toggleFavorite(productId, newFavState);
       } catch (e) {
         product.isFavorite = !newFavState;
+        product.favoritesCount += newFavState ? -1 : 1;
+        if (product.favoritesCount < 0) product.favoritesCount = 0;
         notifyListeners();
         debugPrint('Error toggling favorite: $e');
       }
@@ -168,9 +214,37 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addToCart(Product product) async {
+    // OPTIMISTIC UPDATE: langsung update cart lokal biar terasa instan,
+    // baru sinkronkan ke server di belakang layar.
+    final existingIndex =
+        _cart.indexWhere((item) => item.product.id == product.id);
+    CartItem? previousState;
+    var isNewLocalItem = false;
+
+    if (existingIndex != -1) {
+      previousState = CartItem(
+        id: _cart[existingIndex].id,
+        product: _cart[existingIndex].product,
+        quantity: _cart[existingIndex].quantity,
+      );
+      _cart[existingIndex].quantity += 1;
+    } else {
+      isNewLocalItem = true;
+      _cart.add(
+        CartItem(
+          id: 'temp-${product.id}-${DateTime.now().millisecondsSinceEpoch}',
+          product: product,
+          quantity: 1,
+        ),
+      );
+    }
+    notifyListeners();
+
     try {
       final newItem = await _api.addToCart(product);
-      final index = _cart.indexWhere((item) => item.product.id == product.id);
+      final index = _cart.indexWhere(
+        (item) => item.product.id == product.id,
+      );
       if (index != -1) {
         _cart[index] = newItem;
       } else {
@@ -178,6 +252,13 @@ class AppState extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
+      // Rollback jika gagal
+      if (isNewLocalItem) {
+        _cart.removeWhere((item) => item.product.id == product.id);
+      } else if (previousState != null && existingIndex != -1) {
+        _cart[existingIndex] = previousState;
+      }
+      notifyListeners();
       debugPrint('Error adding to cart: $e');
       rethrow;
     }
@@ -288,6 +369,13 @@ class AppState extends ChangeNotifier {
         .toList();
   }
 
+  // TOP PICKS: produk yang pernah di-like (favorite) minimal 1 kali oleh
+  // user manapun -> pakai favoritesCount (total like dari semua user),
+  // BUKAN isFavorite (yang hanya mencerminkan like dari user yang sedang login).
+  List<Product> get topPicksProducts =>
+      _products.where((p) => p.favoritesCount >= 1).toList();
+
+  // verifiedProducts tetap ada untuk kompatibilitas
   List<Product> get verifiedProducts =>
       _products.where((p) => p.sellerVerified).toList();
 }

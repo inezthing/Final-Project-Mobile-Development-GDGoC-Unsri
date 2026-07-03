@@ -204,25 +204,29 @@ class _CommunityPageState extends State<CommunityPage> {
                             );
                             state.addPost(post);
                             if (ctx.mounted) Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                  'Postingan berhasil dibuat! 🎉',
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'Postingan berhasil dibuat! 🎉',
+                                  ),
+                                  backgroundColor: AppTheme.primary,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
-                                backgroundColor: AppTheme.primary,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            );
+                              );
+                            }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Gagal mengirim postingan: $e'),
-                                backgroundColor: Colors.red[400],
-                              ),
-                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Gagal mengirim postingan: $e'),
+                                  backgroundColor: Colors.red[400],
+                                ),
+                              );
+                            }
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -565,9 +569,11 @@ class _ConversationBottomSheetState extends State<ConversationBottomSheet> {
         context.read<AppState>().loadPosts();
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal mengirim balasan: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal mengirim balasan: $e')));
+      }
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
@@ -578,7 +584,6 @@ class _ConversationBottomSheetState extends State<ConversationBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : const Color(0xFF2D1B2E);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../data/app_state.dart';
 import '../theme/app_theme.dart';
 import 'login_page.dart';
+import 'edit_profile_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,8 +13,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool _notifEnabled = true;
-  bool _priceAlertEnabled = false;
   bool _isLoggingOut = false; // BARU: loading state untuk logout
 
   // ==========================================
@@ -149,36 +148,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
 
               const SizedBox(height: 16),
-              _sectionHeader('Notifikasi'),
-              const SizedBox(height: 10),
-
-              _settingsCard(
-                isDark: isDark,
-                children: [
-                  _switchRow(
-                    label: '🔔 Notifikasi Chat',
-                    subtitle: 'Dapatkan notif saat ada pesan dari seller',
-                    value: _notifEnabled,
-                    onChanged: (v) => setState(() => _notifEnabled = v),
-                    isDark: isDark,
-                    textColor: textColor,
-                  ),
-                  Divider(
-                    color: isDark ? Colors.white10 : Colors.grey[100],
-                    height: 20,
-                  ),
-                  _switchRow(
-                    label: '💰 Alert Harga',
-                    subtitle: 'Notif saat harga produk favorit turun',
-                    value: _priceAlertEnabled,
-                    onChanged: (v) => setState(() => _priceAlertEnabled = v),
-                    isDark: isDark,
-                    textColor: textColor,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
               _sectionHeader('Akun'),
               const SizedBox(height: 10),
 
@@ -189,6 +158,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     label: '👤 Edit Profil',
                     isDark: isDark,
                     textColor: textColor,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const EditProfilePage(),
+                      ),
+                    ),
                   ),
                   Divider(
                     color: isDark ? Colors.white10 : Colors.grey[100],
@@ -370,55 +345,14 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _switchRow({
-    required String label,
-    required String subtitle,
-    required bool value,
-    required void Function(bool) onChanged,
-    required bool isDark,
-    required Color textColor,
-  }) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isDark ? Colors.white38 : Colors.grey[400],
-                ),
-              ),
-            ],
-          ),
-        ),
-        Switch.adaptive(
-          value: value,
-          onChanged: onChanged,
-          activeColor: AppTheme.primary,
-        ),
-      ],
-    );
-  }
-
   Widget _navRow({
     required String label,
     required bool isDark,
     required Color textColor,
+    VoidCallback? onTap,
   }) {
     return GestureDetector(
-      onTap: () {},
+      onTap: onTap ?? () {},
       child: Row(
         children: [
           Expanded(

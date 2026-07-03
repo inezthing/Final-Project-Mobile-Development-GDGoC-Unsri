@@ -16,6 +16,7 @@ class Product {
   final DateTime listedAt;
   final List<String> paymentMethods;
   bool isFavorite;
+  int favoritesCount;
 
   Product({
     required this.id,
@@ -35,6 +36,7 @@ class Product {
     required this.listedAt,
     required this.paymentMethods,
     this.isFavorite = false,
+    this.favoritesCount = 0,
   });
 
   factory Product.fromJson(
@@ -45,8 +47,10 @@ class Product {
     final sellerProfile = json['profiles'] as Map<String, dynamic>?;
 
     var favorited = isFav;
+    var favCount = 0;
     if (json['favorites'] is List) {
       final favList = json['favorites'] as List;
+      favCount = favList.length;
       if (currentUserId != null) {
         favorited = favList.any(
           (f) => f is Map && f['user_id'] == currentUserId,
@@ -78,6 +82,7 @@ class Product {
       listedAt: _readDateTime(json['listed_at'] ?? json['created_at']),
       paymentMethods: _readStringList(json['payment_methods']),
       isFavorite: favorited,
+      favoritesCount: favCount,
     );
   }
 

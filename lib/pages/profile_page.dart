@@ -25,12 +25,15 @@ class ProfilePage extends StatelessWidget {
             state.posts.where((p) => p.userId == currentUserId).toList();
         final username = state.userProfile?['username'] ?? 'User';
         final age = _ageFromBirthDate(state.userProfile?['birth_date']);
-        final joinedAt = _formatJoinedAt(state.userProfile?['created_at']);
+        final joinedAt = _formatJoinedAt(
+          state.userProfile?['joined_at'] ?? state.userProfile?['created_at'],
+        );
         final location = _profileText(
           state.userProfile?['location'],
           fallback: 'Belum diisi',
         );
-        final avatarUrl = state.userProfile?['avatar_url'] ?? '🐰';
+        final avatarUrl =
+            (state.userProfile?['avatar_url'] as String?) ?? '🐰';
 
         return Scaffold(
           body: SafeArea(
@@ -91,13 +94,21 @@ class ProfilePage extends StatelessWidget {
                                 color: Colors.white.withOpacity(0.5),
                                 width: 2,
                               ),
+                              image: avatarUrl.startsWith('http')
+                                  ? DecorationImage(
+                                      image: NetworkImage(avatarUrl),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
                             ),
-                            child: Center(
-                              child: Text(
-                                avatarUrl,
-                                style: const TextStyle(fontSize: 36),
-                              ),
-                            ),
+                            child: avatarUrl.startsWith('http')
+                                ? null
+                                : Center(
+                                    child: Text(
+                                      avatarUrl,
+                                      style: const TextStyle(fontSize: 36),
+                                    ),
+                                  ),
                           ),
                           const SizedBox(height: 12),
                           Text(

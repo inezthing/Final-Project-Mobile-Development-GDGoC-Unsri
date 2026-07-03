@@ -252,13 +252,13 @@ class HomePage extends StatelessWidget {
                           return _buildShimmerGrid(cols);
                         }
 
-                        final products = state.verifiedProducts;
+                        final products = state.topPicksProducts;
                         if (products.isEmpty) {
                           return const Center(
                             child: Padding(
                               padding: EdgeInsets.symmetric(vertical: 40),
                               child: Text(
-                                'Belum ada produk terverifikasi 🛍️',
+                                'Belum ada produk yang di-favoritkan 🛍️',
                                 style: TextStyle(fontWeight: FontWeight.w600),
                               ),
                             ),

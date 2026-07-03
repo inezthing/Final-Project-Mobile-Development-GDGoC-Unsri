@@ -112,7 +112,6 @@ class SupabaseService {
     try {
       await _client.auth.signOut();
     } catch (e) {
-      // Tetap lanjutkan logout meski error — data lokal tetap dibersihkan
       debugPrint('Sign out error (ignored): $e');
     }
   }
@@ -125,15 +124,52 @@ class SupabaseService {
           .eq('id', userId)
           .maybeSingle();
       if (data != null) return data;
+
+      // PENTING: kalau baris di tabel profiles belum ada (misal trigger
+      // handle_new_user gagal/telat), JANGAN cuma dipalsukan di lokal saja.
+      // Kalau dipalsukan, aplikasi terlihat baik-baik saja tapi semua insert
+      // lain yang mereferensikan profiles(id) -- seperti bikin postingan
+      // komunitas, produk, cart, favorit -- akan gagal dengan error foreign
+      // key karena baris user-nya sendiri tidak nyata ada di database.
+      // Jadi di sini kita benar-benar buat baris-nya di database.
       if (currentUser?.id == userId) {
+        final repaired = await _repairMissingProfile(currentUser!);
+        if (repaired != null) return repaired;
         return _profileFromAuthUser(currentUser!);
       }
       return null;
     } catch (e) {
       debugPrint('Error fetching user profile: $e');
       if (currentUser?.id == userId) {
+        final repaired = await _repairMissingProfile(currentUser!);
+        if (repaired != null) return repaired;
         return _profileFromAuthUser(currentUser!);
       }
+      return null;
+    }
+  }
+
+  // Membuat ulang baris profiles yang hilang berdasarkan data auth.users,
+  // supaya foreign key ke profiles(id) di tabel lain (products, cart_items,
+  // favorites, community_posts, dst) tidak gagal.
+  Future<Map<String, dynamic>?> _repairMissingProfile(User user) async {
+    try {
+      final metadata = user.userMetadata ?? {};
+      final fallback = _profileFromAuthUser(user);
+      final response = await _client
+          .from('profiles')
+          .upsert({
+            'id': user.id,
+            'username': fallback['username'],
+            'avatar_url': metadata['avatar_url'] ?? '\u{1F337}',
+            'birth_date': metadata['birth_date'],
+            'location': metadata['location'],
+          })
+          .select()
+          .single();
+      return response;
+    } catch (e) {
+      debugPrint('Error repairing missing profile: $e');
       return null;
     }
   }
@@ -142,13 +178,60 @@ class SupabaseService {
     final metadata = user.userMetadata ?? {};
     return {
       'id': user.id,
-      'username':
-          metadata['username'] ?? user.email?.split('@').first ?? 'User',
+      'username': metadata['username'] ?? user.email?.split('@').first ?? 'User',
       'avatar_url': metadata['avatar_url'] ?? '\u{1F337}',
       'birth_date': metadata['birth_date'],
       'location': metadata['location'],
       'created_at': user.createdAt,
     };
+  }
+
+  // ==========================================
+  // UPDATE PROFILE (username, birth_date, location, avatar_url)
+  // ==========================================
+  Future<Map<String, dynamic>> updateProfile({
+    required String username,
+    required String birthDate,
+    required String location,
+    String? avatarUrl,
+  }) async {
+    if (currentUser == null) throw Exception('Kamu perlu masuk dulu.');
+    try {
+      final updates = <String, dynamic>{
+        'username': username,
+        'birth_date': birthDate,
+        'location': location,
+      };
+      if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+
+      final response = await _client
+          .from('profiles')
+          .update(updates)
+          .eq('id', currentUser!.id)
+          .select()
+          .single();
+      return response;
+    } catch (e) {
+      debugPrint('Error updating profile: $e');
+      throw Exception(_friendlyError(e));
+    }
+  }
+
+  // Upload foto profil ke storage bucket 'avatars', return public URL
+  Future<String?> uploadAvatar(File file) async {
+    try {
+      if (currentUser == null) return null;
+      final fileName = '${currentUser!.id}/avatar.jpg';
+      await _client.storage.from('avatars').upload(
+            fileName,
+            file,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+          );
+      return _client.storage.from('avatars').getPublicUrl(fileName);
+    } catch (e) {
+      debugPrint('Error uploading avatar: $e');
+      return null;
+    }
   }
 
   // ==========================================
@@ -161,12 +244,10 @@ class SupabaseService {
       try {
         response = await _client
             .from('products')
-            .select('*, profiles(*), favorites(*)')
+            .select('*, profiles!products_seller_id_fkey(*), favorites(*)')
             .order('listed_at', ascending: false);
       } catch (e) {
-        debugPrint(
-          'Fetch products with relations failed, retrying basic query: $e',
-        );
+        debugPrint('Fetch products with relations failed, retrying basic query: $e');
         response = await _client
             .from('products')
             .select()
@@ -240,7 +321,7 @@ class SupabaseService {
       return _client.storage.from('product_images').getPublicUrl(fileName);
     } catch (e) {
       debugPrint('Error uploading image: $e');
-      return null; // Gagal upload gambar tidak fatal, produk tetap dibuat
+      return null;
     }
   }
 
@@ -272,7 +353,7 @@ class SupabaseService {
     try {
       final response = await _client
           .from('cart_items')
-          .select('*, products(*, profiles(*))')
+          .select('*, products(*, profiles!products_seller_id_fkey(*))')
           .eq('user_id', currentUser!.id);
       return (response as List).map((json) {
         final productJson = json['products'];
@@ -288,7 +369,7 @@ class SupabaseService {
       }).toList();
     } catch (e) {
       debugPrint('Error fetching cart: $e');
-      return []; // Return kosong agar app tidak crash
+      return [];
     }
   }
 
@@ -308,7 +389,7 @@ class SupabaseService {
             .from('cart_items')
             .update({'quantity': newQty})
             .eq('id', existing['id'])
-            .select('*, products(*, profiles(*))')
+            .select('*, products(*, profiles!products_seller_id_fkey(*))')
             .single();
         final prod = Product.fromJson(
           response['products'],
@@ -327,7 +408,7 @@ class SupabaseService {
               'product_id': product.id,
               'quantity': 1,
             })
-            .select('*, products(*, profiles(*))')
+            .select('*, products(*, profiles!products_seller_id_fkey(*))')
             .single();
         final prod = Product.fromJson(
           response['products'],
@@ -375,7 +456,7 @@ class SupabaseService {
       final userId = currentUser?.id;
       final response = await _client
           .from('community_posts')
-          .select('*, profiles(*), post_likes(*), community_replies(count)')
+          .select('*, profiles!community_posts_user_id_fkey(*), post_likes(*), community_replies(count)')
           .order('posted_at', ascending: false);
       return (response as List).map((json) {
         final repliesCount =
@@ -407,7 +488,7 @@ class SupabaseService {
             'title': title,
             'content': content,
           })
-          .select('*, profiles(*)')
+          .select('*, profiles!community_posts_user_id_fkey(*)')
           .single();
       return CommunityPost.fromJson(response, currentUserId: currentUser!.id);
     } catch (e) {
@@ -440,7 +521,7 @@ class SupabaseService {
     try {
       final response = await _client
           .from('community_replies')
-          .select('*, profiles(*)')
+          .select('*, profiles!community_replies_user_id_fkey(*)')
           .eq('post_id', postId)
           .order('created_at', ascending: true);
       return List<Map<String, dynamic>>.from(response);
@@ -467,30 +548,6 @@ class SupabaseService {
   // ==========================================
   // HELPER EMOJIS & COLORS (FALLBACK)
   // ==========================================
-  // ignore: unused_element
-  String _getCategoryEmoji(String category) {
-    switch (category) {
-      case 'Woman Fashion':
-        return '👗';
-      case 'Man Fashion':
-        return '👕';
-      case 'Health & Beauty':
-        return '💄';
-      case 'Keychain':
-        return '🔑';
-      case 'Trinket':
-        return '🧸';
-      case 'Shoes':
-        return '👟';
-      case 'Playing Card':
-        return '🃏';
-      case 'Sticker':
-        return '🏷️';
-      default:
-        return '📦';
-    }
-  }
-
   String _getCategoryEmojiSafe(String category) {
     switch (category) {
       case 'Woman Fashion':
@@ -537,6 +594,3 @@ class SupabaseService {
     }
   }
 }
-
-// ignore: avoid_print
-//void debugPrint(String message) => print(message);
