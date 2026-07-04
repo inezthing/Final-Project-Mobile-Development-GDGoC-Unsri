@@ -5,6 +5,9 @@ import '../data/supabase_service.dart';
 import '../data/app_state.dart';
 import 'main_navigation.dart';
 
+/// Halaman Login sekaligus Registrasi (satu halaman, formnya berubah-ubah
+/// tergantung mode _isRegister). Setelah login/daftar berhasil, langsung
+/// diarahkan ke MainNavigation.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
   @override
@@ -12,16 +15,20 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // Key untuk validasi form (Form widget butuh ini untuk cek semua validator)
   final _formKey = GlobalKey<FormState>();
+  // Controller tiap kolom input, dipakai untuk baca teks yang diketik user
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
   final _birthDateController = TextEditingController();
   final _locationController = TextEditingController();
-  bool _isRegister = false;
-  bool _isLoading = false;
-  bool _obscurePassword = true;
+  bool _isRegister = false; // false = mode Login, true = mode Daftar
+  bool _isLoading = false; // true selagi proses submit ke server berjalan
+  bool _obscurePassword = true; // true = password disembunyikan (titik-titik)
   final _api = SupabaseService();
+
+  // Wajib dispose semua TextEditingController supaya tidak memory leak
   @override
   void dispose() {
     _emailController.dispose();
@@ -32,6 +39,8 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  /// Pindah ke MainNavigation dan hapus semua history halaman sebelumnya
+  /// (supaya user tidak bisa tekan "back" balik ke halaman login).
   void _goToHome() {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const MainNavigation()),
@@ -39,9 +48,14 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  /// Proses submit form: validasi dulu, lalu panggil signUp atau signIn
+  /// tergantung mode yang aktif.
   Future<void> _submit() async {
+    // Kalau ada validator yang gagal (misal email kosong), berhenti di sini
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
+    // Simpan referensi ScaffoldMessenger sebelum async gap, supaya aman
+    // dipakai nanti walau context sempat berubah
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
       if (_isRegister) {
@@ -55,10 +69,14 @@ class _LoginPageState extends State<LoginPage> {
         );
 
         if (response.session != null && mounted) {
+          // Kalau Supabase langsung kasih session (auto-confirm email aktif),
+          // langsung load data & masuk ke halaman utama
           await context.read<AppState>().loadAllData();
           if (!mounted) return;
           _goToHome();
         } else {
+          // Kalau butuh verifikasi email dulu, kasih tahu user lalu
+          // arahkan balik ke mode Login (bukan Daftar)
           scaffoldMessenger.showSnackBar(
             const SnackBar(
               content: Text(
@@ -83,6 +101,7 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
     } catch (e) {
+      // Tampilkan pesan error (sudah diubah jadi ramah oleh SupabaseService)
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
@@ -90,6 +109,8 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } finally {
+      // Matikan loading spinner apapun hasilnya (berhasil/gagal),
+      // asal widget-nya masih ada di layar (mounted)
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -103,6 +124,7 @@ class _LoginPageState extends State<LoginPage> {
     final textColor = isDark ? Colors.white : const Color(0xFF2D1B2E);
     return Scaffold(
       body: Container(
+        // Background gradasi lembut dari atas ke bawah
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isDark
@@ -114,6 +136,8 @@ class _LoginPageState extends State<LoginPage> {
         ),
         child: SafeArea(
           child: Center(
+            // SingleChildScrollView: supaya form tetap bisa discroll kalau
+            // keyboard muncul dan mempersempit ruang layar
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -158,7 +182,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  // Auth Card
+                  // ==== Kartu form Login/Daftar ====
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -186,6 +210,8 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 20),
+                          // Kolom-kolom ini CUMA muncul kalau mode Daftar aktif
+                          // (spread operator `...` untuk masukin banyak widget sekaligus)
                           if (_isRegister) ...[
                             TextFormField(
                               controller: _usernameController,
@@ -200,7 +226,7 @@ class _LoginPageState extends State<LoginPage> {
                                 if (val.trim().length < 3) {
                                   return 'Minimal 3 karakter';
                                 }
-                                return null;
+                                return null; // null berarti valid, tidak ada error
                               },
                             ),
                             const SizedBox(height: 16),
@@ -246,6 +272,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 16),
                           ],
+                          // Kolom email — selalu tampil (baik Login maupun Daftar)
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
@@ -257,6 +284,7 @@ class _LoginPageState extends State<LoginPage> {
                               if (val == null || val.trim().isEmpty) {
                                 return 'Email tidak boleh kosong';
                               }
+                              // Regex sederhana untuk cek format "sesuatu@sesuatu.sesuatu"
                               final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
                               if (!regex.hasMatch(val.trim())) {
                                 return 'Format email tidak valid';
@@ -265,6 +293,7 @@ class _LoginPageState extends State<LoginPage> {
                             },
                           ),
                           const SizedBox(height: 16),
+                          // Kolom password, dengan tombol mata untuk show/hide
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
@@ -293,6 +322,8 @@ class _LoginPageState extends State<LoginPage> {
                             },
                           ),
                           const SizedBox(height: 24),
+                          // Tombol submit — teks & aksinya berubah tergantung mode,
+                          // dan diganti jadi spinner selagi _isLoading true
                           SizedBox(
                             width: double.infinity,
                             height: 50,
@@ -329,7 +360,8 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Toggle Login/Register
+                  // Toggle Login/Register — tombol untuk pindah antara mode
+                  // Login dan Daftar, sekalian reset validasi form
                   TextButton(
                     onPressed: () {
                       setState(() {

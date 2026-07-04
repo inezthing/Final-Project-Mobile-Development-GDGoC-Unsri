@@ -5,6 +5,9 @@ import 'package:image_picker/image_picker.dart';
 import '../data/app_state.dart';
 import '../theme/app_theme.dart';
 
+/// Halaman untuk edit profil user: ubah foto/avatar, username, tanggal lahir,
+/// dan lokasi. Avatar bisa berupa foto asli (upload) ATAU emoji preset
+/// (pilih salah satu, keduanya saling eksklusif).
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -18,12 +21,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late final TextEditingController _locationCtrl;
 
   DateTime? _birthDate;
-  String? _selectedEmoji;
-  File? _avatarFile;
+  String? _selectedEmoji; // avatar emoji yang dipilih (null kalau pakai foto)
+  File? _avatarFile; // foto avatar yang diambil dari kamera/galeri
   bool _isSaving = false;
 
   final _picker = ImagePicker();
 
+  // Daftar emoji preset yang bisa dipilih sebagai avatar
   static const List<String> _emojiOptions = [
     '🐰', '🐶', '🐱', '🦊', '🐻',
     '🐼', '🦄', '🐸', '🐨', '🐯',
@@ -33,6 +37,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
+    // Isi form dengan data profil yang sudah ada (biar user tinggal edit,
+    // bukan mulai dari kosong)
     final profile = context.read<AppState>().userProfile;
     _usernameCtrl = TextEditingController(
       text: (profile?['username'] as String?) ?? '',
@@ -42,6 +48,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
     _birthDate = _parseDate(profile?['birth_date']);
 
+    // avatar_url bisa berisi URL foto (diawali "http") atau emoji polos.
+    // Kalau bukan URL, berarti itu emoji -> tandai sebagai emoji terpilih.
     final currentAvatar = profile?['avatar_url'] as String?;
     if (currentAvatar != null && !currentAvatar.startsWith('http')) {
       _selectedEmoji = currentAvatar;
@@ -55,6 +63,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
+  /// Ubah string tanggal dari database jadi DateTime, atau null kalau gagal.
   DateTime? _parseDate(dynamic value) {
     if (value is String && value.trim().isNotEmpty) {
       return DateTime.tryParse(value.trim());
@@ -62,6 +71,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return null;
   }
 
+  /// Format DateTime jadi string "YYYY-MM-DD" untuk disimpan ke database.
   String _formatDateForDb(DateTime date) {
     final y = date.year.toString().padLeft(4, '0');
     final m = date.month.toString().padLeft(2, '0');
@@ -69,6 +79,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return '$y-$m-$d';
   }
 
+  /// Format tanggal jadi lebih enak dibaca (misal "21 Apr 2003") untuk ditampilkan di UI.
   String _formatDateForDisplay(DateTime? date) {
     if (date == null) return 'Pilih tanggal lahir';
     const months = [
@@ -78,13 +89,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
+  /// Buka date picker bawaan Flutter untuk memilih tanggal lahir.
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
+      // Default tampil di usia 20 tahun kalau belum ada tanggal lahir tersimpan
       initialDate: _birthDate ?? DateTime(now.year - 20, now.month, now.day),
       firstDate: DateTime(1940),
-      lastDate: now,
+      lastDate: now, // tidak boleh pilih tanggal di masa depan
       helpText: 'Pilih tanggal lahir',
     );
     if (picked != null) {
@@ -92,6 +105,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  /// Tampilkan bottom sheet untuk pilih sumber foto (kamera atau galeri),
+  /// lalu buka picker sesuai pilihan user.
   Future<void> _pickAvatarSource() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -118,7 +133,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
-        imageQuality: 85,
+        imageQuality: 85, // kompres kualitas biar ukuran file tidak terlalu besar
         maxWidth: 800,
       );
       if (pickedFile != null) {
@@ -132,6 +147,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  /// Simpan perubahan profil ke Supabase lewat AppState.
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -142,6 +158,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             birthDate: _birthDate != null ? _formatDateForDb(_birthDate!) : '',
             location: _locationCtrl.text.trim(),
             avatarFile: _avatarFile,
+            // Emoji hanya dikirim kalau tidak ada foto yang dipilih
             avatarEmoji: _avatarFile == null ? _selectedEmoji : null,
           );
       if (mounted) {
@@ -190,6 +207,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              // ==== Avatar (foto atau emoji) + tombol kamera kecil di pojok ====
               Center(
                 child: GestureDetector(
                   onTap: _pickAvatarSource,
@@ -202,6 +220,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           color: AppTheme.blush,
                           shape: BoxShape.circle,
                           border: Border.all(color: AppTheme.rose, width: 2),
+                          // Kalau ada file foto yang dipilih, tampilkan sebagai background image
                           image: _avatarFile != null
                               ? DecorationImage(
                                   image: FileImage(_avatarFile!),
@@ -209,6 +228,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 )
                               : null,
                         ),
+                        // Kalau tidak ada foto, tampilkan emoji di tengah lingkaran
                         child: _avatarFile == null
                             ? Center(
                                 child: Text(
@@ -218,6 +238,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               )
                             : null,
                       ),
+                      // Ikon kamera kecil di pojok kanan bawah avatar
                       Positioned(
                         bottom: 0,
                         right: 0,
@@ -260,6 +281,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
               ),
               const SizedBox(height: 8),
+              // Wrap: grid emoji otomatis pindah baris kalau kolomnya penuh
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -269,7 +291,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   return GestureDetector(
                     onTap: () => setState(() {
                       _selectedEmoji = emoji;
-                      _avatarFile = null;
+                      _avatarFile = null; // pilih emoji -> batalkan foto yang tadi dipilih
                     }),
                     child: Container(
                       width: 44,
@@ -294,6 +316,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
 
               const SizedBox(height: 24),
+              // ==== Form kolom username ====
               TextFormField(
                 controller: _usernameCtrl,
                 decoration: const InputDecoration(
@@ -306,6 +329,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 14),
 
+              // ==== Kolom tanggal lahir (bukan TextFormField biasa, tapi
+              // tampilan yang mirip input, dibuka lewat date picker saat di-tap) ====
               GestureDetector(
                 onTap: _pickBirthDate,
                 child: InputDecorator(
@@ -326,6 +351,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 14),
 
+              // ==== Kolom lokasi ====
               TextFormField(
                 controller: _locationCtrl,
                 decoration: const InputDecoration(
@@ -339,6 +365,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
 
               const SizedBox(height: 28),
+              // Tombol simpan, jadi spinner selagi proses simpan berjalan
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

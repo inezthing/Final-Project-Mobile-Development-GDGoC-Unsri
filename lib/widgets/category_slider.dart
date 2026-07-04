@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../pages/explore_page.dart';
 
+// Slider kategori horizontal di halaman home, tap untuk ke Explore Page
 class CategorySlider extends StatefulWidget {
   const CategorySlider({super.key});
 
@@ -12,6 +13,7 @@ class CategorySlider extends StatefulWidget {
 class _CategorySliderState extends State<CategorySlider> {
   int _selected = -1;
 
+  // Daftar kategori statis (nama, emoji, warna latar)
   static const List<_CategoryItem> _categories = [
     _CategoryItem('Woman Fashion', '👗', Color(0xFFFFCCE5)),
     _CategoryItem('Man Fashion', '👔', Color(0xFFCCE5FF)),
@@ -35,6 +37,7 @@ class _CategorySliderState extends State<CategorySlider> {
         itemBuilder: (context, index) {
           final cat = _categories[index];
           final isSelected = _selected == index;
+          // Tap kategori -> tandai terpilih & buka Explore Page dengan filter kategori itu
           return GestureDetector(
             onTap: () {
               setState(() => _selected = index);
@@ -107,6 +110,7 @@ class _CategorySliderState extends State<CategorySlider> {
   }
 }
 
+// Model data satu kategori (nama, emoji, warna)
 class _CategoryItem {
   final String name;
   final String emoji;

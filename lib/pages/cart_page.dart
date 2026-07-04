@@ -3,9 +3,13 @@ import 'package:provider/provider.dart';
 import '../data/app_state.dart';
 import '../theme/app_theme.dart';
 
+/// Halaman keranjang belanja. Menampilkan daftar item di cart, tombol
+/// +/- untuk ubah jumlah, tombol hapus item, total harga, dan tombol checkout.
+/// Kalau cart kosong, tampilkan tampilan "empty state" yang ramah.
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
 
+  /// Format harga jadi punya titik pemisah ribuan (misal 150000 -> "150.000").
   String _formatPrice(double price) {
     final p = price.toInt();
     final str = p.toString();
@@ -19,9 +23,11 @@ class CartPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // context.watch: dengarkan AppState, rebuild halaman ini kalau cart berubah
     final state = context.watch<AppState>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : const Color(0xFF2D1B2E);
+    // Hitung total harga semua item di cart (harga x quantity, dijumlahkan)
     final total = state.cart.fold<double>(
       0,
       (sum, item) => sum + item.product.price * item.quantity,
@@ -36,6 +42,8 @@ class CartPage extends StatelessWidget {
         ),
       ),
       body: SafeArea(
+        // Kalau cart kosong -> tampilkan pesan "keranjang kosong" + tombol ke Explore.
+        // Kalau ada isinya -> tampilkan daftar item + ringkasan total di bawah.
         child: state.cart.isEmpty
             ? Center(
                 child: Column(
@@ -69,6 +77,7 @@ class CartPage extends StatelessWidget {
               )
             : Column(
                 children: [
+                  // ==== Daftar item cart (bisa discroll) ====
                   Expanded(
                     child: ListView.builder(
                       padding: const EdgeInsets.all(16),
@@ -81,6 +90,7 @@ class CartPage extends StatelessWidget {
                             padding: const EdgeInsets.all(12),
                             child: Row(
                               children: [
+                                // Thumbnail gambar/emoji produk
                                 Container(
                                   width: 60,
                                   height: 60,
@@ -106,6 +116,7 @@ class CartPage extends StatelessWidget {
                                             fit: BoxFit.cover,
                                             width: 60,
                                             height: 60,
+                                            // Fallback ke emoji kalau foto gagal dimuat
                                             errorBuilder:
                                                 (context, error, stackTrace) {
                                                   return Center(
@@ -129,6 +140,7 @@ class CartPage extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
+                                // Nama produk, harga, dan kontrol quantity (+/-)
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -154,6 +166,7 @@ class CartPage extends StatelessWidget {
                                         ),
                                       ),
                                       const SizedBox(height: 4),
+                                      // Tombol "-" jumlah, tombol "+"
                                       Row(
                                         children: [
                                           GestureDetector(
@@ -214,6 +227,7 @@ class CartPage extends StatelessWidget {
                                     ],
                                   ),
                                 ),
+                                // Tombol hapus item dari cart
                                 IconButton(
                                   onPressed: () =>
                                       state.removeFromCart(item.id),
@@ -230,6 +244,7 @@ class CartPage extends StatelessWidget {
                       },
                     ),
                   ),
+                  // ==== Panel bawah: total harga + tombol checkout ====
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -269,6 +284,9 @@ class CartPage extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
+                            // NOTE: checkout di sini masih simulasi (belum ada
+                            // proses pembayaran beneran) — cuma tampilkan
+                            // Snackbar sukses lalu tutup halaman cart.
                             onPressed: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

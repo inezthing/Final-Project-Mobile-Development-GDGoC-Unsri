@@ -6,6 +6,7 @@ import '../data/app_state.dart';
 import '../theme/app_theme.dart';
 import '../data/supabase_service.dart';
 
+// Halaman form untuk membuat listing produk baru
 class SellPage extends StatefulWidget {
   const SellPage({super.key});
 
@@ -30,6 +31,7 @@ class _SellPageState extends State<SellPage> {
   File? _imageFile;
   final _picker = ImagePicker();
 
+  // Ambil foto dari sumber (kamera/galeri) yang dipilih
   Future<void> _pickImageFrom(ImageSource source) async {
     try {
       final pickedFile = await _picker.pickImage(
@@ -48,6 +50,7 @@ class _SellPageState extends State<SellPage> {
     }
   }
 
+  // Tampilkan pilihan sumber foto (kamera/galeri) via bottom sheet
   Future<void> _pickImage() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -74,6 +77,7 @@ class _SellPageState extends State<SellPage> {
     await _pickImageFrom(source);
   }
 
+  // Daftar pilihan kategori produk
   static const List<String> _categories = [
     'Woman Fashion',
     'Man Fashion',
@@ -85,6 +89,7 @@ class _SellPageState extends State<SellPage> {
     'Sticker',
   ];
 
+  // Daftar pilihan kondisi produk
   static const List<String> _conditions = [
     'Brand New - Sealed',
     'Brand New',
@@ -93,6 +98,7 @@ class _SellPageState extends State<SellPage> {
     'Used - Good',
   ];
 
+  // Daftar pilihan metode pembayaran
   static const List<String> _paymentOptions = [
     'Transfer Bank',
     'GoPay',
@@ -112,16 +118,19 @@ class _SellPageState extends State<SellPage> {
     super.dispose();
   }
 
+  // Tandai form ada perubahan yang belum disimpan (buat konfirmasi keluar)
   void _markChanged() {
     if (!_hasUnsavedChanges) setState(() => _hasUnsavedChanges = true);
   }
 
+  // Ambil angka murni dari input harga (buang selain digit)
   double? _parsePrice(String value) {
     final digitsOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
     if (digitsOnly.isEmpty) return null;
     return double.tryParse(digitsOnly);
   }
 
+  // Konfirmasi dialog saat user coba keluar padahal ada perubahan belum disimpan
   Future<bool> _onWillPop() async {
     if (!_hasUnsavedChanges) return true;
     final result = await showDialog<bool>(
@@ -154,6 +163,7 @@ class _SellPageState extends State<SellPage> {
     return result ?? false;
   }
 
+  // Validasi form, upload gambar (kalau ada), lalu kirim produk baru ke server
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedPayments.isEmpty) {
@@ -174,6 +184,7 @@ class _SellPageState extends State<SellPage> {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
+      // Upload foto dulu (kalau user pilih foto), baru buat produknya
       String? imageUrl;
       if (_imageFile != null) {
         imageUrl = await SupabaseService().uploadProductImage(_imageFile!);
@@ -197,6 +208,7 @@ class _SellPageState extends State<SellPage> {
       context.read<AppState>().addProduct(product);
       setState(() => _hasUnsavedChanges = false);
 
+      // Tampilkan dialog sukses setelah produk berhasil dilisting
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -254,6 +266,7 @@ class _SellPageState extends State<SellPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : const Color(0xFF2D1B2E);
 
+    // PopScope: cegah keluar tanpa konfirmasi kalau ada perubahan belum disimpan
     return PopScope(
       canPop: !_hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, _) async {
@@ -266,6 +279,7 @@ class _SellPageState extends State<SellPage> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Jual Barang 🏷️'),
+          // Tombol close juga cek perubahan belum disimpan sebelum keluar
           leading: IconButton(
             icon: const Icon(Icons.close),
             onPressed: () async {
@@ -294,7 +308,7 @@ class _SellPageState extends State<SellPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // ── Foto placeholder ──────────────────────────
+                          // ── Foto placeholder: tap untuk pilih foto produk ──
                           Semantics(
                             label: 'Tombol tambah foto produk',
                             button: true,
@@ -373,6 +387,7 @@ class _SellPageState extends State<SellPage> {
                           ),
 
                           const SizedBox(height: 24),
+                          // ── Section: Informasi Produk ──
                           _sectionLabel('Informasi Produk', textColor),
                           const SizedBox(height: 12),
 
@@ -504,6 +519,7 @@ class _SellPageState extends State<SellPage> {
                           ),
 
                           const SizedBox(height: 24),
+                          // ── Section: Harga & Pembayaran ──
                           _sectionLabel('Harga & Pembayaran', textColor),
                           const SizedBox(height: 12),
 
@@ -536,7 +552,7 @@ class _SellPageState extends State<SellPage> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          // Wrap untuk chip pembayaran (rubrik B)
+                          // Chip pilihan metode pembayaran (bisa pilih lebih dari satu)
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
@@ -590,6 +606,7 @@ class _SellPageState extends State<SellPage> {
                           ),
 
                           const SizedBox(height: 32),
+                          // Tombol submit form: nonaktif & tampil loading saat proses upload
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
@@ -632,6 +649,7 @@ class _SellPageState extends State<SellPage> {
     );
   }
 
+  // Label section dengan garis aksen kecil di kiri
   Widget _sectionLabel(String label, Color textColor) {
     return Row(
       children: [
@@ -656,6 +674,7 @@ class _SellPageState extends State<SellPage> {
     );
   }
 
+  // Widget reusable untuk text field form (label, hint, validator)
   Widget _buildField({
     required BuildContext context,
     required TextEditingController controller,
@@ -686,6 +705,7 @@ class _SellPageState extends State<SellPage> {
     );
   }
 
+  // Widget reusable untuk dropdown pilihan (kategori/kondisi)
   Widget _dropdownField({
     required BuildContext context,
     required String label,

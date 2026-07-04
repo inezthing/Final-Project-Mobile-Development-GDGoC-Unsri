@@ -5,6 +5,8 @@ import '../models/models.dart';
 import 'supabase_service.dart';
 import 'secure_storage_service.dart';
 
+// State management global aplikasi (produk, cart, posts, profil, dll)
+// menggunakan Provider/ChangeNotifier
 class AppState extends ChangeNotifier {
   final _api = SupabaseService();
 
@@ -17,6 +19,7 @@ class AppState extends ChangeNotifier {
   String? _errorMessage;
 
   String? get errorMessage => _errorMessage;
+  // Reset pesan error (dipanggil setelah error ditampilkan ke user)
   void clearError() {
     _errorMessage = null;
     notifyListeners();
@@ -32,6 +35,7 @@ class AppState extends ChangeNotifier {
   double get cartTotalPrice =>
       _cart.fold(0.0, (sum, item) => sum + (item.product.price * item.quantity));
 
+  // Set status loading global & kabari listener (dipakai buat loading indicator)
   void _setLoading(bool val) {
     _isLoading = val;
     notifyListeners();
@@ -40,6 +44,7 @@ class AppState extends ChangeNotifier {
   // ==========================================
   // THEME — PERSISTENT
   // ==========================================
+  // Ambil preferensi tema tersimpan dari SharedPreferences saat app dibuka
   Future<void> loadThemePreference() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -55,6 +60,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Ganti tema (light/dark/system) dan simpan pilihannya secara permanen
   Future<void> setThemeMode(ThemeMode mode) async {
     _themeMode = mode;
     notifyListeners();
@@ -74,6 +80,7 @@ class AppState extends ChangeNotifier {
   // ==========================================
   // DATA LOADING
   // ==========================================
+  // Load semua data utama secara paralel (profil, produk, cart, posts)
   Future<void> loadAllData() async {
     _setLoading(true);
     _errorMessage = null;
@@ -93,6 +100,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Ambil data profil user yang sedang login
   Future<void> loadUserProfile() async {
     if (_api.currentUser != null) {
       try {
@@ -104,6 +112,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Ambil daftar semua produk dari server
   Future<void> loadProducts() async {
     try {
       _products = await _api.fetchProducts();
@@ -113,6 +122,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Ambil isi keranjang belanja user
   Future<void> loadCart() async {
     try {
       _cart = await _api.fetchCart();
@@ -122,6 +132,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Ambil daftar postingan komunitas
   Future<void> loadPosts() async {
     try {
       _posts = await _api.fetchPosts();
@@ -134,12 +145,14 @@ class AppState extends ChangeNotifier {
   // ==========================================
   // LOGOUT — bersihkan state + secure storage
   // ==========================================
+  // Logout: hapus sesi di server, hapus token tersimpan, reset state lokal
   Future<void> signOut() async {
     await _api.signOut();
     await SecureStorageService.clearAll();
     _clearLocalState();
   }
 
+  // Reset semua data lokal (dipanggil saat logout)
   void _clearLocalState() {
     _products = [];
     _posts = [];
@@ -153,6 +166,7 @@ class AppState extends ChangeNotifier {
   // ==========================================
   // UPDATE PROFILE
   // ==========================================
+  // Update profil user (username, tanggal lahir, lokasi, avatar)
   Future<void> updateProfile({
     required String username,
     required String birthDate,
@@ -192,6 +206,7 @@ class AppState extends ChangeNotifier {
   // ==========================================
   // ACTIONS & MUTATIONS
   // ==========================================
+  // Toggle status favorit produk (optimistic update, rollback kalau gagal)
   Future<void> toggleFavorite(String productId) async {
     final index = _products.indexWhere((p) => p.id == productId);
     if (index != -1) {
@@ -204,6 +219,7 @@ class AppState extends ChangeNotifier {
       try {
         await _api.toggleFavorite(productId, newFavState);
       } catch (e) {
+        // Gagal sync ke server -> kembalikan state seperti semula
         product.isFavorite = !newFavState;
         product.favoritesCount += newFavState ? -1 : 1;
         if (product.favoritesCount < 0) product.favoritesCount = 0;
@@ -213,6 +229,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Tambah produk ke keranjang (optimistic update + rollback kalau gagal)
   Future<void> addToCart(Product product) async {
     // OPTIMISTIC UPDATE: langsung update cart lokal biar terasa instan,
     // baru sinkronkan ke server di belakang layar.
@@ -264,6 +281,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Hapus item dari keranjang
   Future<void> removeFromCart(String cartItemId) async {
     try {
       await _api.removeFromCart(cartItemId);
@@ -275,6 +293,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Tambah jumlah item di cart sebanyak 1 (rollback kalau gagal)
   Future<void> incrementCartItem(CartItem item) async {
     final newQty = item.quantity + 1;
     item.quantity = newQty;
@@ -288,6 +307,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Kurangi jumlah item di cart sebanyak 1, atau hapus kalau sisa 1
   Future<void> decrementCartItem(CartItem item) async {
     if (item.quantity <= 1) {
       await removeFromCart(item.id);
@@ -305,16 +325,19 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Tambah produk baru ke list lokal (setelah berhasil upload ke server)
   Future<void> addProduct(Product product) async {
     _products.insert(0, product);
     notifyListeners();
   }
 
+  // Tambah postingan baru ke list lokal (setelah berhasil dikirim ke server)
   Future<void> addPost(CommunityPost post) async {
     _posts.insert(0, post);
     notifyListeners();
   }
 
+  // Toggle like pada postingan komunitas (optimistic update, rollback kalau gagal)
   Future<void> toggleLikePost(String postId) async {
     final index = _posts.indexWhere((p) => p.id == postId);
     if (index != -1) {
@@ -341,6 +364,7 @@ class AppState extends ChangeNotifier {
       try {
         await _api.toggleLikePost(postId, newLikeState);
       } catch (e) {
+        // Gagal sync ke server -> kembalikan post ke state semula
         _posts[index] = post;
         notifyListeners();
         debugPrint('Error liking post: $e');
@@ -351,11 +375,13 @@ class AppState extends ChangeNotifier {
   // ==========================================
   // ACCESSORS & FILTERS
   // ==========================================
+  // Filter produk berdasarkan kategori ('All' = tampilkan semua)
   List<Product> getProductsByCategory(String category) {
     if (category == 'All') return _products;
     return _products.where((p) => p.category == category).toList();
   }
 
+  // Cari produk berdasarkan nama, brand, kategori, deskripsi, atau nama seller
   List<Product> searchProducts(String query) {
     if (query.isEmpty) return _products;
     final q = query.toLowerCase();

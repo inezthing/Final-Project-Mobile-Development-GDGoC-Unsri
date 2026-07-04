@@ -8,21 +8,28 @@ import '../widgets/category_slider.dart';
 import '../widgets/product_card.dart';
 import 'cart_page.dart';
 
+/// Halaman utama (tab pertama). Isinya: sapaan + tombol cart, banner promo,
+/// slider kategori, dan grid produk "Top Picks". Semua data diambil dari
+/// AppState lewat Consumer, jadi otomatis update kalau datanya berubah.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
+  /// Bangun grid "skeleton loading" (efek kilau abu-abu) yang ditampilkan
+  /// selagi data produk masih dimuat dari server, biar user tidak lihat
+  /// layar kosong/blank.
   Widget _buildShimmerGrid(int cols) {
     return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true, // grid menyesuaikan tinggi kontennya, bukan memenuhi layar
+      physics: const NeverScrollableScrollPhysics(), // scroll ditangani parent (CustomScrollView)
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols,
         childAspectRatio: 0.72,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
       ),
-      itemCount: cols * 2,
+      itemCount: cols * 2, // tampilkan 2 baris kartu shimmer
       itemBuilder: (context, index) {
+        // Shimmer.fromColors bikin efek animasi "berkilau" khas skeleton loading
         return Shimmer.fromColors(
           baseColor: Colors.grey[300]!,
           highlightColor: Colors.grey[100]!,
@@ -30,6 +37,8 @@ class HomePage extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
+            // Bentuk kartu shimmer meniru layout ProductCard asli
+            // (kotak gambar di atas, garis-garis teks placeholder di bawah)
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -77,12 +86,18 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
+        // Consumer<AppState>: widget ini rebuild otomatis tiap kali AppState
+        // memanggil notifyListeners() (misal produk selesai dimuat, cart berubah, dst)
         child: Consumer<AppState>(
           builder: (context, state, _) {
             final username = state.userProfile?['username'] ?? 'Nadia';
 
+            // CustomScrollView + slivers dipakai supaya bisa gabungkan
+            // berbagai jenis konten (header, banner, grid) dalam satu scroll
+            // yang halus, tanpa nested scroll view yang bikin error.
             return CustomScrollView(
               slivers: [
+                // ==== Header: sapaan nama user + tombol keranjang ====
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -106,6 +121,7 @@ class HomePage extends StatelessWidget {
                             ),
                           ],
                         ),
+                        // Ikon keranjang + badge angka jumlah item di cart
                         Semantics(
                           label: 'Keranjang belanja, ${state.cartCount} item',
                           button: true,
@@ -141,6 +157,7 @@ class HomePage extends StatelessWidget {
                                     color: AppTheme.primary,
                                   ),
                                 ),
+                                // Badge merah muda kecil, cuma muncul kalau ada isi di cart
                                 if (state.cartCount > 0)
                                   Positioned(
                                     right: 0,
@@ -169,12 +186,14 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                 ),
+                // ==== Banner promo auto-scroll ====
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.only(top: 20),
                     child: BannerCarousel(),
                   ),
                 ),
+                // ==== Judul "Kategori" + slider kategori horizontal ====
                 SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,6 +213,7 @@ class HomePage extends StatelessWidget {
                     ],
                   ),
                 ),
+                // ==== Judul "Top Picks" + tombol "Lihat semua" ====
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
@@ -202,6 +222,7 @@ class HomePage extends StatelessWidget {
                       children: [
                         Row(
                           children: [
+                            // Garis kecil vertikal sebagai aksen di samping judul
                             Container(
                               width: 4,
                               height: 18,
@@ -236,11 +257,14 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                 ),
+                // ==== Grid produk Top Picks (responsif jumlah kolom) ====
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverToBoxAdapter(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
+                        // Tentukan jumlah kolom grid berdasarkan lebar layar
+                        // (2 kolom di HP, 3 di tablet, 4 di layar besar)
                         final screenWidth = MediaQuery.of(context).size.width;
                         final cols = screenWidth >= 1000
                             ? 4
@@ -248,11 +272,13 @@ class HomePage extends StatelessWidget {
                             ? 3
                             : 2;
 
+                        // Selagi data masih loading, tampilkan shimmer placeholder
                         if (state.isLoading) {
                           return _buildShimmerGrid(cols);
                         }
 
                         final products = state.topPicksProducts;
+                        // Kalau belum ada produk yang di-favorite siapapun, tampilkan pesan kosong
                         if (products.isEmpty) {
                           return const Center(
                             child: Padding(
@@ -265,6 +291,7 @@ class HomePage extends StatelessWidget {
                           );
                         }
 
+                        // Tampilkan grid kartu produk yang sesungguhnya
                         return GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),

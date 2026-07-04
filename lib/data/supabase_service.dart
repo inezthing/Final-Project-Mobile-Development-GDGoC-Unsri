@@ -31,6 +31,8 @@ String _friendlyError(Object e) {
   return 'Terjadi kesalahan. Coba lagi nanti.';
 }
 
+// Service utama buat semua komunikasi ke Supabase (auth, database, storage).
+// Dibuat singleton biar instance-nya sama di seluruh aplikasi.
 class SupabaseService {
   static final SupabaseService _instance = SupabaseService._internal();
   factory SupabaseService() => _instance;
@@ -45,6 +47,7 @@ class SupabaseService {
   User? get currentUser => _client.auth.currentUser;
   bool get isAuthenticated => currentUser != null;
 
+  // Login dengan email & password
   Future<AuthResponse> signIn({
     required String email,
     required String password,
@@ -59,6 +62,7 @@ class SupabaseService {
     }
   }
 
+  // Registrasi akun baru + buat profil di tabel 'profiles'
   Future<AuthResponse> signUp({
     required String email,
     required String password,
@@ -93,6 +97,7 @@ class SupabaseService {
     }
   }
 
+  // Simpan/update data profil user (insert kalau belum ada, update kalau sudah)
   Future<void> upsertUserProfile({
     required String userId,
     required String username,
@@ -108,6 +113,7 @@ class SupabaseService {
     });
   }
 
+  // Logout dari Supabase auth
   Future<void> signOut() async {
     try {
       await _client.auth.signOut();
@@ -116,6 +122,7 @@ class SupabaseService {
     }
   }
 
+  // Ambil profil user berdasarkan ID, otomatis perbaiki kalau baris profil hilang
   Future<Map<String, dynamic>?> fetchUserProfile(String userId) async {
     try {
       final data = await _client
@@ -174,6 +181,7 @@ class SupabaseService {
     }
   }
 
+  // Bikin data profil sementara dari metadata auth (dipakai kalau repair gagal)
   Map<String, dynamic> _profileFromAuthUser(User user) {
     final metadata = user.userMetadata ?? {};
     return {
@@ -189,6 +197,7 @@ class SupabaseService {
   // ==========================================
   // UPDATE PROFILE (username, birth_date, location, avatar_url)
   // ==========================================
+  // Update data profil (username, tanggal lahir, lokasi, avatar opsional)
   Future<Map<String, dynamic>> updateProfile({
     required String username,
     required String birthDate,
@@ -237,6 +246,8 @@ class SupabaseService {
   // ==========================================
   // PRODUCTS
   // ==========================================
+  // Ambil semua produk beserta data seller & favorit; fallback ke query
+  // sederhana kalau query dengan relasi gagal
   Future<List<Product>> fetchProducts() async {
     try {
       final userId = currentUser?.id;
@@ -262,6 +273,7 @@ class SupabaseService {
     }
   }
 
+  // Buat produk baru sekaligus set emoji & warna default sesuai kategori
   Future<Product> createProduct({
     required String name,
     required String brand,
@@ -308,6 +320,7 @@ class SupabaseService {
     }
   }
 
+  // Upload foto produk ke storage bucket 'product_images', return public URL
   Future<String?> uploadProductImage(File file) async {
     try {
       if (currentUser == null) return null;
@@ -325,6 +338,7 @@ class SupabaseService {
     }
   }
 
+  // Tambah/hapus produk dari daftar favorit user
   Future<void> toggleFavorite(String productId, bool isFavorite) async {
     if (currentUser == null) return;
     try {
@@ -348,6 +362,7 @@ class SupabaseService {
   // ==========================================
   // CART
   // ==========================================
+  // Ambil isi keranjang user beserta detail produknya
   Future<List<CartItem>> fetchCart() async {
     if (currentUser == null) return [];
     try {
@@ -373,6 +388,7 @@ class SupabaseService {
     }
   }
 
+  // Tambah produk ke cart: kalau sudah ada, tambah quantity; kalau belum, insert baru
   Future<CartItem> addToCart(Product product) async {
     if (currentUser == null) throw Exception('Kamu perlu masuk dulu.');
     try {
@@ -426,6 +442,7 @@ class SupabaseService {
     }
   }
 
+  // Hapus item dari cart berdasarkan ID
   Future<void> removeFromCart(String cartItemId) async {
     if (currentUser == null) return;
     try {
@@ -436,6 +453,7 @@ class SupabaseService {
     }
   }
 
+  // Update jumlah quantity item cart
   Future<void> updateCartQuantity(String cartItemId, int quantity) async {
     if (currentUser == null) return;
     try {
@@ -451,6 +469,7 @@ class SupabaseService {
   // ==========================================
   // COMMUNITY
   // ==========================================
+  // Ambil semua postingan komunitas beserta profil, like, dan jumlah balasan
   Future<List<CommunityPost>> fetchPosts() async {
     try {
       final userId = currentUser?.id;
@@ -459,6 +478,7 @@ class SupabaseService {
           .select('*, profiles!community_posts_user_id_fkey(*), post_likes(*), community_replies(count)')
           .order('posted_at', ascending: false);
       return (response as List).map((json) {
+        // Ambil jumlah balasan dari hasil aggregate count
         final repliesCount =
             (json['community_replies'] as List?)?.first?['count'] ?? 0;
         final enrichedJson = Map<String, dynamic>.from(json);
@@ -471,6 +491,7 @@ class SupabaseService {
     }
   }
 
+  // Buat postingan komunitas baru
   Future<CommunityPost> createPost({
     required String community,
     required String type,
@@ -497,6 +518,7 @@ class SupabaseService {
     }
   }
 
+  // Tambah/hapus like pada postingan
   Future<void> toggleLikePost(String postId, bool isLiked) async {
     if (currentUser == null) return;
     try {
@@ -517,6 +539,7 @@ class SupabaseService {
     }
   }
 
+  // Ambil daftar balasan untuk satu postingan, urut dari yang terlama
   Future<List<Map<String, dynamic>>> fetchReplies(String postId) async {
     try {
       final response = await _client
@@ -531,6 +554,7 @@ class SupabaseService {
     }
   }
 
+  // Kirim balasan baru ke sebuah postingan
   Future<void> createReply(String postId, String content) async {
     if (currentUser == null) throw Exception('Kamu perlu masuk dulu.');
     try {
@@ -548,6 +572,7 @@ class SupabaseService {
   // ==========================================
   // HELPER EMOJIS & COLORS (FALLBACK)
   // ==========================================
+  // Ambil emoji default berdasarkan kategori produk
   String _getCategoryEmojiSafe(String category) {
     switch (category) {
       case 'Woman Fashion':
@@ -571,6 +596,7 @@ class SupabaseService {
     }
   }
 
+  // Ambil warna latar default berdasarkan kategori produk
   String _getCategoryColor(String category) {
     switch (category) {
       case 'Woman Fashion':

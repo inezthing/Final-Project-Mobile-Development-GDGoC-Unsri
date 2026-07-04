@@ -6,6 +6,9 @@ import 'home_page.dart';
 import 'profile_page.dart';
 import 'sell_page.dart';
 
+/// Halaman "shell" utama setelah login — berisi bottom navigation bar
+/// (Home, Explore, tombol Jual di tengah, Komunitas, Profil) dan menampilkan
+/// halaman yang sesuai berdasarkan tab yang sedang aktif.
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
 
@@ -14,8 +17,11 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
+  // Index tab yang sedang aktif (0=Home, 1=Explore, 3=Komunitas, 4=Profil).
+  // Catatan: index 2 sengaja dilewati karena itu "slot" untuk tombol Jual (FAB)
   int _currentIndex = 0;
 
+  /// Pilih halaman mana yang ditampilkan berdasarkan tab aktif.
   Widget _buildPage() {
     switch (_currentIndex) {
       case 0:
@@ -35,6 +41,8 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _buildPage(),
+      // Tombol bulat "+" untuk jual barang, posisinya nyempil di tengah
+      // bottom nav (mengambang di atas notch)
       floatingActionButton: const _SellFab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _BottomNav(
@@ -45,13 +53,14 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
+/// Tombol bulat mengambang (Floating Action Button) untuk membuka halaman Sell.
 class _SellFab extends StatelessWidget {
   const _SellFab();
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Jual barang baru',
+      label: 'Jual barang baru', // label accessibility
       child: GestureDetector(
         onTap: () => Navigator.push(
           context,
@@ -82,6 +91,8 @@ class _SellFab extends StatelessWidget {
   }
 }
 
+/// Bottom navigation bar dengan lekukan (notch) di tengah untuk tempat
+/// tombol Sell "duduk". Berisi 4 tombol navigasi + 1 spasi kosong di tengah.
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final void Function(int) onTap;
@@ -94,8 +105,8 @@ class _BottomNav extends StatelessWidget {
     return BottomAppBar(
       color: isDark ? const Color(0xFF1A0D1A) : Colors.white,
       elevation: 8,
-      notchMargin: 8,
-      shape: const CircularNotchedRectangle(),
+      notchMargin: 8, // jarak antara notch dan tombol FAB
+      shape: const CircularNotchedRectangle(), // bentuk lekukan melingkar untuk FAB
       child: SizedBox(
         height: 60,
         child: Row(
@@ -117,6 +128,8 @@ class _BottomNav extends StatelessWidget {
               currentIndex: currentIndex,
               onTap: onTap,
             ),
+            // Ruang kosong selebar tombol FAB, supaya tombol Sell (index 2)
+            // punya tempat "duduk" di tengah tanpa nabrak nav item lain
             const SizedBox(width: 60),
             _NavItem(
               index: 3,
@@ -141,6 +154,8 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
+/// Satu tombol item di bottom nav (icon + label), berubah warna & icon
+/// (outline -> filled) kalau sedang aktif/dipilih.
 class _NavItem extends StatelessWidget {
   final int index;
   final int currentIndex;
@@ -166,7 +181,7 @@ class _NavItem extends StatelessWidget {
       selected: isSelected,
       child: GestureDetector(
         onTap: () => onTap(index),
-        behavior: HitTestBehavior.opaque,
+        behavior: HitTestBehavior.opaque, // area kosong di sekitar icon tetap bisa di-tap
         child: SizedBox(
           width: 60,
           child: Column(

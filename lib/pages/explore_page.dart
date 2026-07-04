@@ -7,6 +7,9 @@ import '../theme/app_theme.dart';
 import '../widgets/product_card.dart';
 import 'cart_page.dart';
 
+/// Halaman Explore: kolom pencarian + filter kategori (chip horizontal)
+/// + grid produk hasil pencarian/filter. Bisa dibuka dengan kategori awal
+/// tertentu (misal dari CategorySlider di home page).
 class ExplorePage extends StatefulWidget {
   final String? initialCategory;
   const ExplorePage({super.key, this.initialCategory});
@@ -17,9 +20,10 @@ class ExplorePage extends StatefulWidget {
 
 class _ExplorePageState extends State<ExplorePage> {
   final TextEditingController _searchController = TextEditingController();
-  String _query = '';
-  String _selectedCategory = 'All';
+  String _query = ''; // teks pencarian saat ini
+  String _selectedCategory = 'All'; // kategori filter yang aktif
 
+  // Daftar kategori untuk chip filter, "All" berarti tampilkan semua kategori
   static const List<String> _categories = [
     'All',
     'Woman Fashion',
@@ -35,6 +39,8 @@ class _ExplorePageState extends State<ExplorePage> {
   @override
   void initState() {
     super.initState();
+    // Kalau halaman ini dibuka dengan kategori awal (misal dari tap kategori
+    // di home page), langsung set sebagai filter aktif
     _selectedCategory = widget.initialCategory ?? 'All';
   }
 
@@ -44,6 +50,7 @@ class _ExplorePageState extends State<ExplorePage> {
     super.dispose();
   }
 
+  /// Grid shimmer placeholder selagi produk masih dimuat (sama seperti di home_page).
   Widget _buildShimmerGrid(int cols) {
     return GridView.builder(
       shrinkWrap: true,
@@ -101,6 +108,8 @@ class _ExplorePageState extends State<ExplorePage> {
     );
   }
 
+  /// Filter daftar produk berdasarkan kata kunci pencarian DAN kategori
+  /// yang dipilih sekaligus (dua filter diterapkan berurutan).
   List<Product> _getFiltered(List<Product> all) {
     List<Product> products = _query.isEmpty
         ? all
@@ -133,6 +142,7 @@ class _ExplorePageState extends State<ExplorePage> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Row(
                 children: [
+                  // Kolom pencarian teks
                   Expanded(
                     child: Semantics(
                       label: 'Kolom pencarian produk',
@@ -153,6 +163,7 @@ class _ExplorePageState extends State<ExplorePage> {
                         ),
                         child: TextField(
                           controller: _searchController,
+                          // Setiap ketikan langsung update _query -> grid ikut ter-filter real-time
                           onChanged: (v) => setState(() => _query = v),
                           style: TextStyle(
                             color: isDark
@@ -171,6 +182,8 @@ class _ExplorePageState extends State<ExplorePage> {
                               color: AppTheme.primary,
                               size: 20,
                             ),
+                            // Tombol "x" cuma muncul kalau ada teks yang diketik,
+                            // untuk mengosongkan pencarian dengan cepat
                             suffixIcon: _query.isNotEmpty
                                 ? IconButton(
                                     icon: const Icon(
@@ -197,6 +210,7 @@ class _ExplorePageState extends State<ExplorePage> {
                     ),
                   ),
                   const SizedBox(width: 10),
+                  // Ikon keranjang + badge jumlah item (sama seperti di home_page)
                   Consumer<AppState>(
                     builder: (context, state, _) => Semantics(
                       label: 'Keranjang, ${state.cartCount} item',
@@ -259,7 +273,7 @@ class _ExplorePageState extends State<ExplorePage> {
               ),
             ),
 
-            // ── Filter kategori ────────────────────────────────────────
+            // ── Filter kategori (chip horizontal yang bisa di-scroll) ──────
             SizedBox(
               height: 46,
               child: ListView.builder(
@@ -308,10 +322,11 @@ class _ExplorePageState extends State<ExplorePage> {
               ),
             ),
 
-            // ── Grid dengan LayoutBuilder ─────────────────────────────
+            // ── Grid hasil pencarian/filter, jumlah kolom menyesuaikan lebar layar ──
             Expanded(
               child: Consumer<AppState>(
                 builder: (context, state, _) {
+                  // Selagi produk masih dimuat dari server, tampilkan shimmer
                   if (state.isLoading) {
                     return LayoutBuilder(
                       builder: (context, constraints) {
@@ -329,6 +344,7 @@ class _ExplorePageState extends State<ExplorePage> {
 
                   final filtered = _getFiltered(state.products);
 
+                  // Kalau hasil filter/pencarian kosong, tampilkan pesan "tidak ditemukan"
                   if (filtered.isEmpty) {
                     return Center(
                       child: Column(
@@ -359,6 +375,8 @@ class _ExplorePageState extends State<ExplorePage> {
 
                   return Column(
                     children: [
+                      // Tampilkan jumlah hasil, hanya kalau user sedang aktif
+                      // mencari atau memfilter (bukan saat menampilkan semua produk)
                       if (_query.isNotEmpty || _selectedCategory != 'All')
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
@@ -379,6 +397,7 @@ class _ExplorePageState extends State<ExplorePage> {
                       Expanded(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
+                            // Jumlah kolom grid responsif terhadap lebar layar
                             final screenW = MediaQuery.of(context).size.width;
                             int cols;
                             if (screenW >= 1000) {

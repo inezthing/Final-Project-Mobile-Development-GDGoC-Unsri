@@ -1,3 +1,4 @@
+// Model data produk yang dijual di marketplace
 class Product {
   final String id;
   final String name;
@@ -39,6 +40,7 @@ class Product {
     this.favoritesCount = 0,
   });
 
+  // Bikin objek Product dari data JSON (response Supabase)
   factory Product.fromJson(
     Map<String, dynamic> json, {
     bool isFav = false,
@@ -46,6 +48,7 @@ class Product {
   }) {
     final sellerProfile = json['profiles'] as Map<String, dynamic>?;
 
+    // Hitung status favorit & jumlah favorit dari relasi 'favorites'
     var favorited = isFav;
     var favCount = 0;
     if (json['favorites'] is List) {
@@ -86,12 +89,14 @@ class Product {
     );
   }
 
+  // Helper parsing aman: ambil string, fallback kalau null/kosong
   static String _readString(dynamic value, {String fallback = ''}) {
     if (value == null) return fallback;
     final text = value.toString().trim();
     return text.isEmpty ? fallback : text;
   }
 
+  // Helper parsing aman: ambil angka double dari num/string
   static double _readDouble(dynamic value) {
     if (value is num) return value.toDouble();
     if (value is String) {
@@ -101,6 +106,7 @@ class Product {
     return 0;
   }
 
+  // Helper parsing aman: ambil boolean dari bool/string/num
   static bool _readBool(dynamic value) {
     if (value is bool) return value;
     if (value is String) return value.toLowerCase() == 'true';
@@ -108,6 +114,7 @@ class Product {
     return false;
   }
 
+  // Helper parsing aman: ambil tanggal, default ke waktu sekarang kalau gagal
   static DateTime _readDateTime(dynamic value) {
     if (value is DateTime) return value;
     if (value is String) {
@@ -116,6 +123,7 @@ class Product {
     return DateTime.now();
   }
 
+  // Helper parsing aman: ubah jadi list of string
   static List<String> _readStringList(dynamic value) {
     if (value is List) return value.map((item) => item.toString()).toList();
     if (value is String && value.trim().isNotEmpty) return [value.trim()];
@@ -123,6 +131,7 @@ class Product {
   }
 }
 
+// Model data postingan di halaman komunitas
 class CommunityPost {
   final String id;
   final String userId;
@@ -156,12 +165,14 @@ class CommunityPost {
   })  : repliesCount = repliesCount ?? replies.length,
         likesCount = likesCount ?? likes ?? 0;
 
+  // Bikin objek CommunityPost dari data JSON (response Supabase)
   factory CommunityPost.fromJson(
     Map<String, dynamic> json, {
     String? currentUserId,
   }) {
     final profile = json['profiles'] as Map<String, dynamic>?;
 
+    // Cek apakah user saat ini sudah like post ini
     var liked = false;
     if (json['post_likes'] is List) {
       final likesList = json['post_likes'] as List;
@@ -172,6 +183,7 @@ class CommunityPost {
       }
     }
 
+    // Ambil jumlah like, prioritaskan count dari server, fallback hitung dari list
     var likesCount = 0;
     if (json['post_likes_count'] is int) {
       likesCount = json['post_likes_count'] as int;
@@ -179,6 +191,7 @@ class CommunityPost {
       likesCount = (json['post_likes'] as List).length;
     }
 
+    // Ambil jumlah balasan, prioritaskan count dari server, fallback hitung dari list
     var repliesCount = 0;
     if (json['community_replies_count'] is int) {
       repliesCount = json['community_replies_count'] as int;
@@ -206,12 +219,14 @@ class CommunityPost {
     );
   }
 
+  // Helper parsing aman: ambil string, fallback kalau null/kosong
   static String _readString(dynamic value, {String fallback = ''}) {
     if (value == null) return fallback;
     final text = value.toString().trim();
     return text.isEmpty ? fallback : text;
   }
 
+  // Helper parsing aman: ambil tanggal, default ke waktu sekarang kalau gagal
   static DateTime _readDateTime(dynamic value) {
     if (value is DateTime) return value;
     if (value is String) {
@@ -221,6 +236,7 @@ class CommunityPost {
   }
 }
 
+// Model item di keranjang belanja (produk + jumlah)
 class CartItem {
   final String id;
   final Product product;

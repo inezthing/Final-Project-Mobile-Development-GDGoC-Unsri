@@ -13,6 +13,7 @@ class SecureStorageService extends GotrueAsyncStorage {
 
   static const _prefix = 'whimsify_';
 
+  // Ambil value tersimpan berdasarkan key (return null kalau gagal/tidak ada)
   @override
   Future<String?> getItem({required String key}) async {
     try {
@@ -22,6 +23,7 @@ class SecureStorageService extends GotrueAsyncStorage {
     }
   }
 
+  // Simpan value baru ke secure storage
   @override
   Future<void> setItem({required String key, required String value}) async {
     try {
@@ -31,6 +33,7 @@ class SecureStorageService extends GotrueAsyncStorage {
     }
   }
 
+  // Hapus satu item berdasarkan key
   @override
   Future<void> removeItem({required String key}) async {
     try {

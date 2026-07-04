@@ -5,6 +5,8 @@ import '../theme/app_theme.dart';
 import 'login_page.dart';
 import 'edit_profile_page.dart';
 
+/// Halaman pengaturan aplikasi: ganti tema, akses edit profil, info aplikasi,
+/// dan tombol logout.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -18,6 +20,8 @@ class _SettingsPageState extends State<SettingsPage> {
   // ==========================================
   // LOGOUT — pakai AppState.signOut() agar state bersih
   // ==========================================
+  /// Tampilkan dialog konfirmasi dulu sebelum benar-benar logout,
+  /// supaya user tidak ke-logout gak sengaja gara-gara salah pencet.
   Future<void> _handleLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -51,6 +55,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
 
+    // Kalau user batal atau widget sudah tidak ada di layar, hentikan di sini
     if (confirmed != true || !mounted) return;
 
     setState(() => _isLoggingOut = true);
@@ -58,6 +63,7 @@ class _SettingsPageState extends State<SettingsPage> {
       // signOut di AppState membersihkan semua state lokal sekaligus
       await context.read<AppState>().signOut();
       if (!mounted) return;
+      // Kembali ke halaman login, hapus semua history navigasi sebelumnya
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginPage()),
         (_) => false,
@@ -96,6 +102,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ==== Section: Tampilan (pilih tema) ====
               _sectionHeader('Tampilan'),
               const SizedBox(height: 10),
 
@@ -116,6 +123,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
                         const SizedBox(height: 10),
+                        // 3 pilihan tema: Terang, Gelap, Sistem (ikut HP)
                         Row(
                           children: [
                             _themeOption(
@@ -148,6 +156,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
 
               const SizedBox(height: 16),
+              // ==== Section: Akun (edit profil, dll — beberapa masih placeholder) ====
               _sectionHeader('Akun'),
               const SizedBox(height: 10),
 
@@ -169,6 +178,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     color: isDark ? Colors.white10 : Colors.grey[100],
                     height: 20,
                   ),
+                  // Menu ini belum ada halamannya, jadi onTap dibiarkan default (tidak ngapa-ngapain)
                   _navRow(
                     label: '🔒 Keamanan & Privasi',
                     isDark: isDark,
@@ -187,6 +197,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
 
               const SizedBox(height: 16),
+              // ==== Section: Tentang aplikasi ====
               _sectionHeader('Tentang'),
               const SizedBox(height: 10),
 
@@ -272,6 +283,9 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // ==== Widget-widget kecil di bawah ini dipakai berulang untuk konsistensi tampilan ====
+
+  /// Judul kecil warna primary di atas tiap grup pengaturan (misal "Tampilan", "Akun").
   Widget _sectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 4),
@@ -287,6 +301,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  /// Bungkus sekelompok pengaturan dalam satu kartu putih dengan shadow tipis.
   Widget _settingsCard({
     required bool isDark,
     required List<Widget> children,
@@ -311,6 +326,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  /// Satu tombol pilihan tema (Terang/Gelap/Sistem), highlight warna primary kalau dipilih.
   Widget _themeOption({
     required String label,
     required bool isSelected,
@@ -345,6 +361,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  /// Satu baris menu yang bisa di-tap, dengan panah "›" di kanan (untuk navigasi).
   Widget _navRow({
     required String label,
     required bool isDark,
@@ -352,7 +369,7 @@ class _SettingsPageState extends State<SettingsPage> {
     VoidCallback? onTap,
   }) {
     return GestureDetector(
-      onTap: onTap ?? () {},
+      onTap: onTap ?? () {}, // kalau belum ada aksinya, tap tidak ngapa-ngapain
       child: Row(
         children: [
           Expanded(
@@ -375,6 +392,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  /// Satu baris info statis (label di kiri, value di kanan), tanpa aksi tap.
   Widget _infoRow(String label, String value, bool isDark, Color textColor) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,

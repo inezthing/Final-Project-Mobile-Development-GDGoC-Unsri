@@ -167,7 +167,8 @@ graph TD
 
 Aplikasi ini menggunakan **[Supabase](https://supabase.com)** sebagai backend-as-a-service.
 
-||---|---|
+| Kategori | Detail |
+|---|---|
 | **Database** | PostgreSQL via Supabase |
 | **Auth** | Supabase Auth — JWT + PKCE flow |
 | **Storage** | Supabase Storage bucket `product_images` |

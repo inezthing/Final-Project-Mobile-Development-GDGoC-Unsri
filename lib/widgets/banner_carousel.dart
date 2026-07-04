@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
+// Carousel banner promosi yang auto-slide di halaman home
 class BannerCarousel extends StatefulWidget {
   const BannerCarousel({super.key});
 
@@ -14,6 +15,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
   int _currentIndex = 0;
   Timer? _timer;
 
+  // Data statis banner promosi (emoji, gradient warna, teks)
   static const List<_BannerData> _banners = [
     _BannerData(
       bigEmoji: '🌿',
@@ -47,6 +49,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
     _startTimer();
   }
 
+  // Otomatis geser ke banner berikutnya tiap 4 detik
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
@@ -61,6 +64,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
     });
   }
 
+  // Bersihkan timer & controller biar tidak memory leak
   @override
   void dispose() {
     _timer?.cancel();
@@ -74,6 +78,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Slider banner yang bisa di-swipe manual atau auto-geser
         SizedBox(
           height: 155,
           child: PageView.builder(
@@ -185,6 +190,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
           ),
         ),
         const SizedBox(height: 10),
+        // Titik indikator halaman aktif
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(_banners.length, (i) {
@@ -206,6 +212,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
   }
 }
 
+// Model data satu banner (emoji, gradient, judul, subjudul, tag)
 class _BannerData {
   final String bigEmoji;
   final List<String> decorEmojis;

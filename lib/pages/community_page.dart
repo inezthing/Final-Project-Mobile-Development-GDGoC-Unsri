@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../data/supabase_service.dart';
 
+// Halaman komunitas: filter by komunitas, list postingan, buat post baru
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key});
 
@@ -15,6 +16,7 @@ class CommunityPage extends StatefulWidget {
 class _CommunityPageState extends State<CommunityPage> {
   String _selectedCommunity = 'All';
 
+  // Daftar tab komunitas yang bisa difilter
   final List<String> _communities = [
     'All',
     'Hirono',
@@ -27,12 +29,14 @@ class _CommunityPageState extends State<CommunityPage> {
     'Molly',
   ];
 
+  // Warna badge berdasarkan tipe postingan (WTS/WTB/Discussion)
   final Map<String, Color> _typeColors = {
     'WTS': const Color(0xFFE91E8C),
     'WTB': const Color(0xFF4CAF50),
     'Discussion': const Color(0xFF2196F3),
   };
 
+  // Format tanggal jadi teks relatif (mis. "5m yang lalu")
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 60) return '${diff.inMinutes}m yang lalu';
@@ -40,6 +44,7 @@ class _CommunityPageState extends State<CommunityPage> {
     return '${diff.inDays}h yang lalu';
   }
 
+  // Tampilkan bottom sheet form untuk membuat postingan baru
   void _showAddPostDialog(BuildContext context) {
     final state = context.read<AppState>();
     final titleCtrl = TextEditingController();
@@ -195,6 +200,7 @@ class _CommunityPageState extends State<CommunityPage> {
                       child: ElevatedButton(
                         onPressed: () async {
                           if (!formKey.currentState!.validate()) return;
+                          // Kirim post baru ke server, lalu update state lokal
                           try {
                             final post = await SupabaseService().createPost(
                               community: selectedCommunity,
@@ -246,6 +252,7 @@ class _CommunityPageState extends State<CommunityPage> {
     );
   }
 
+  // Buka bottom sheet percakapan/balasan untuk sebuah postingan
   void _showConversation(BuildContext context, CommunityPost post) {
     showModalBottomSheet(
       context: context,
@@ -259,6 +266,7 @@ class _CommunityPageState extends State<CommunityPage> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Filter postingan sesuai komunitas yang dipilih
     final filteredPosts = _selectedCommunity == 'All'
         ? state.posts
         : state.posts.where((p) => p.community == _selectedCommunity).toList();
@@ -271,7 +279,7 @@ class _CommunityPageState extends State<CommunityPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Community filter
+            // Filter chip komunitas (scroll horizontal)
             SizedBox(
               height: 46,
               child: ListView.builder(
@@ -320,7 +328,7 @@ class _CommunityPageState extends State<CommunityPage> {
               ),
             ),
 
-            // Posts
+            // Daftar postingan (atau state kosong kalau belum ada)
             Expanded(
               child: filteredPosts.isEmpty
                   ? Center(
@@ -523,6 +531,7 @@ class _CommunityPageState extends State<CommunityPage> {
   }
 }
 
+// Bottom sheet detail postingan + form balasan (mirip thread chat)
 class ConversationBottomSheet extends StatefulWidget {
   final CommunityPost post;
   const ConversationBottomSheet({super.key, required this.post});
@@ -550,12 +559,14 @@ class _ConversationBottomSheetState extends State<ConversationBottomSheet> {
     super.dispose();
   }
 
+  // Muat ulang daftar balasan dari server
   void _refreshReplies() {
     setState(() {
       _repliesFuture = _api.fetchReplies(widget.post.id);
     });
   }
 
+  // Kirim balasan baru, lalu refresh list balasan & jumlah reply di post
   Future<void> _sendReply() async {
     final content = _replyCtrl.text.trim();
     if (content.isEmpty) return;
@@ -619,6 +630,7 @@ class _ConversationBottomSheetState extends State<ConversationBottomSheet> {
             ),
           ),
           Divider(color: isDark ? Colors.white12 : Colors.grey[200]),
+          // List konten post + semua balasan, load async dari server
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _repliesFuture,
@@ -732,6 +744,7 @@ class _ConversationBottomSheetState extends State<ConversationBottomSheet> {
               },
             ),
           ),
+          // Input untuk kirim balasan baru
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(

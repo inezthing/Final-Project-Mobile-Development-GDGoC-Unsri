@@ -6,6 +6,7 @@ import '../widgets/product_card.dart';
 import 'settings_page.dart';
 import '../data/supabase_service.dart';
 
+// Halaman profil: info user, statistik, produk & postingan milik sendiri
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
@@ -19,6 +20,7 @@ class ProfilePage extends StatelessWidget {
         final textColor = isDark ? Colors.white : const Color(0xFF2D1B2E);
         final subColor = isDark ? Colors.white54 : Colors.grey[500]!;
         final currentUserId = SupabaseService().currentUser?.id;
+        // Filter produk & post milik user yang sedang login
         final myProducts =
             state.products.where((p) => p.sellerId == currentUserId).toList();
         final myPosts =
@@ -41,7 +43,7 @@ class ProfilePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header gradient
+                  // Header gradient: nama, avatar, tombol settings
                   Container(
                     width: double.infinity,
                     decoration: const BoxDecoration(
@@ -131,7 +133,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
 
-                  // Info
+                  // Info ringkas: umur, tanggal bergabung, lokasi
                   Container(
                     margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                     padding: const EdgeInsets.all(16),
@@ -157,7 +159,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
 
-                  // Stats
+                  // Statistik: jumlah produk dijual, favorit, dan postingan
                   Container(
                     margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                     padding: const EdgeInsets.all(16),
@@ -197,7 +199,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
 
-                  // My products header
+                  // Header section "Produk Saya"
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                     child: Row(
@@ -223,6 +225,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
 
+                  // Tampilkan list produk milik user, atau pesan kosong kalau belum ada
                   if (myProducts.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(24),
@@ -260,7 +263,7 @@ class ProfilePage extends StatelessWidget {
                       ),
                     ),
 
-                  // Community posts header
+                  // Header section "Postingan Komunitas"
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: Row(
@@ -286,6 +289,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
 
+                  // Tampilkan list postingan milik user, atau pesan kosong kalau belum ada
                   if (myPosts.isEmpty)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
@@ -392,6 +396,7 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  // Widget kecil untuk satu item info (nilai + label) di kartu info
   Widget _infoItem(String value, String label, bool isDark) {
     return Expanded(
       child: Column(
@@ -417,14 +422,17 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  // Garis pemisah vertikal antar info item
   Widget _divider() => Container(width: 1, height: 30, color: AppTheme.rose);
 
+  // Helper: ambil teks profil, fallback kalau kosong/null
   String _profileText(dynamic value, {required String fallback}) {
     if (value == null) return fallback;
     final text = value.toString().trim();
     return text.isEmpty ? fallback : text;
   }
 
+  // Hitung umur dari tanggal lahir
   String _ageFromBirthDate(dynamic value) {
     final date = _parseDate(value);
     if (date == null) return '-';
@@ -437,6 +445,7 @@ class ProfilePage extends StatelessWidget {
     return age < 0 ? '-' : age.toString();
   }
 
+  // Format tanggal bergabung jadi "Bulan Tahun" (mis. "Jan 2025")
   String _formatJoinedAt(dynamic value) {
     final date = _parseDate(value);
     if (date == null) return '-';
@@ -458,6 +467,7 @@ class ProfilePage extends StatelessWidget {
     return '${months[date.month - 1]} ${date.year}';
   }
 
+  // Helper: parse tanggal dari DateTime atau String, null kalau gagal
   DateTime? _parseDate(dynamic value) {
     if (value is DateTime) return value;
     if (value is String && value.trim().isNotEmpty) {
@@ -466,6 +476,7 @@ class ProfilePage extends StatelessWidget {
     return null;
   }
 
+  // Widget kartu statistik kecil (emoji, angka, label)
   Widget _statCard(String value, String label, String emoji, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),

@@ -5,10 +5,12 @@ import '../data/app_state.dart';
 import '../theme/app_theme.dart';
 import '../pages/detail_page.dart';
 
+// Kartu produk untuk ditampilkan di grid/list (home, explore, dll)
 class ProductCard extends StatelessWidget {
   final Product product;
   const ProductCard({super.key, required this.product});
 
+  // Format harga jadi lebih ringkas, contoh: 1500000 -> "1.5jt", 25000 -> "25.000"
   String _formatPrice(double price) {
     final p = price.toInt();
     if (p >= 1000000) {
@@ -27,6 +29,7 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Tap kartu -> buka halaman detail produk
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -40,6 +43,7 @@ class ProductCard extends StatelessWidget {
               flex: 5,
               child: Stack(
                 children: [
+                  // Gambar produk (atau emoji + warna sebagai fallback)
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -134,6 +138,7 @@ class ProductCard extends StatelessWidget {
                       },
                     ),
                   ),
+                  // Badge "Verified" untuk seller yang sudah terverifikasi
                   if (product.sellerVerified)
                     Positioned(
                       top: 8,
@@ -167,6 +172,7 @@ class ProductCard extends StatelessWidget {
                 ],
               ),
             ),
+            // Info produk: nama, brand, harga, kondisi
             Expanded(
               flex: 4,
               child: Padding(
