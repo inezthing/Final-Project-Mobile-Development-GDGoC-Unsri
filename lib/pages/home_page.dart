@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../widgets/banner_carousel.dart';
 import '../widgets/category_slider.dart';
 import '../widgets/product_card.dart';
+import '../widgets/notification_bell_button.dart';
 import 'cart_page.dart';
 
 /// Halaman utama (tab pertama). Isinya: sapaan + tombol cart, banner promo,
@@ -121,66 +122,72 @@ class HomePage extends StatelessWidget {
                             ),
                           ],
                         ),
-                        // Ikon keranjang + badge angka jumlah item di cart
-                        Semantics(
-                          label: 'Keranjang belanja, ${state.cartCount} item',
-                          button: true,
-                          child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const CartPage(),
-                              ),
-                            ),
-                            child: Stack(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? const Color(0xFF3D2040)
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppTheme.primary.withOpacity(
-                                          0.12,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.shopping_bag_outlined,
-                                    color: AppTheme.primary,
+                        // Ikon notifikasi + keranjang (badge angka masing-masing)
+                        Row(
+                          children: [
+                            NotificationBellButton(isDark: isDark, size: 44),
+                            const SizedBox(width: 10),
+                            Semantics(
+                              label: 'Keranjang belanja, ${state.cartCount} item',
+                              button: true,
+                              child: GestureDetector(
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CartPage(),
                                   ),
                                 ),
-                                // Badge merah muda kecil, cuma muncul kalau ada isi di cart
-                                if (state.cartCount > 0)
-                                  Positioned(
-                                    right: 0,
-                                    top: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: AppTheme.primary,
-                                        shape: BoxShape.circle,
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? const Color(0xFF3D2040)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppTheme.primary.withOpacity(
+                                              0.12,
+                                            ),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
-                                      child: Text(
-                                        '${state.cartCount}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                        ),
+                                      child: const Icon(
+                                        Icons.shopping_bag_outlined,
+                                        color: AppTheme.primary,
                                       ),
                                     ),
-                                  ),
-                              ],
+                                    // Badge merah muda kecil, cuma muncul kalau ada isi di cart
+                                    if (state.cartCount > 0)
+                                      Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: AppTheme.primary,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Text(
+                                            '${state.cartCount}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
@@ -284,7 +291,7 @@ class HomePage extends StatelessWidget {
                             child: Padding(
                               padding: EdgeInsets.symmetric(vertical: 40),
                               child: Text(
-                                'Belum ada produk yang di-favoritkan 🛍️',
+                                'Belum ada produk yang laku dibeli 2x+ 🛍️',
                                 style: TextStyle(fontWeight: FontWeight.w600),
                               ),
                             ),

@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../data/app_state.dart';
+import '../data/supabase_service.dart';
 import '../theme/app_theme.dart';
+import 'seller_product_edit_page.dart';
+import 'seller_shop_page.dart';
+import 'chat_room_page.dart';
 
 class DetailPage extends StatefulWidget {
   final Product product;
@@ -13,13 +17,56 @@ class DetailPage extends StatefulWidget {
 }
 
 class _DetailPageState extends State<DetailPage> {
-  bool _chatVisible = false;
-  final TextEditingController _chatController = TextEditingController();
+  bool _isOpeningChat = false;
 
-  @override
-  void dispose() {
-    _chatController.dispose();
-    super.dispose();
+  // Buka (atau buat baru kalau belum ada) percakapan dengan seller, lalu
+  // LANGSUNG masuk ke ChatRoomPage -- tidak ada lagi kotak chat inline di
+  // halaman ini. Room chat itu dibuka default untuk nego harga, tapi
+  // pembeli tetap bebas nanya hal lain juga di sana (lihat ChatRoomPage).
+  Future<void> _openChat(Product product) async {
+    final api = SupabaseService();
+    if (api.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Masuk dulu untuk chat seller.')),
+      );
+      return;
+    }
+    if (api.currentUser!.id == product.sellerId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ini produkmu sendiri, tidak bisa chat diri sendiri.')),
+      );
+      return;
+    }
+
+    setState(() => _isOpeningChat = true);
+    try {
+      final conversationId = await api.getOrCreateConversation(
+        productId: product.id,
+        sellerId: product.sellerId,
+      );
+      if (!mounted) return;
+      setState(() => _isOpeningChat = false);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatRoomPage(
+            conversationId: conversationId,
+            otherUsername: product.sellerName,
+            otherAvatar: '\u{1F464}',
+            productName: product.name,
+            productId: product.id,
+            productPrice: product.price,
+            sellerId: product.sellerId,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isOpeningChat = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal membuka chat: $e')),
+      );
+    }
   }
 
   String _formatPrice(double price) {
@@ -215,9 +262,24 @@ class _DetailPageState extends State<DetailPage> {
                               _tag(product.category, Icons.category_outlined),
                               _tag(product.condition, Icons.star_outline),
                               _tag(
+                                product.stock > 0
+                                    ? 'Stok: ${product.stock}'
+                                    : 'Stok habis',
+                                Icons.inventory_2_outlined,
+                              ),
+                              _tag(
                                 'Size: ${product.size}',
                                 Icons.straighten_outlined,
                               ),
+                              // Badge "sudah dibeli X kali" -- cuma muncul
+                              // kalau minimal sudah pernah laku 1x, dihitung
+                              // dari VIEW product_purchase_stats (lihat
+                              // SupabaseService.fetchProducts).
+                              if (product.purchaseCount > 0)
+                                _tag(
+                                  'Sudah dibeli ${product.purchaseCount}x',
+                                  Icons.local_fire_department_outlined,
+                                ),
                             ],
                           ),
 
@@ -295,64 +357,91 @@ class _DetailPageState extends State<DetailPage> {
 
                           Row(
                             children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: const BoxDecoration(
-                                  color: AppTheme.blush,
-                                  shape: BoxShape.circle,
+                              GestureDetector(
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => SellerShopPage(
+                                      sellerId: product.sellerId,
+                                      initialSellerName: product.sellerName,
+                                    ),
+                                  ),
                                 ),
-                                child: const Center(
-                                  child: Text(
-                                    '🛍️',
-                                    style: TextStyle(fontSize: 20),
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.blush,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      '🛍️',
+                                      style: TextStyle(fontSize: 20),
+                                    ),
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '@${product.sellerName}',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            color: textColor,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        if (product.sellerVerified) ...[
-                                          const SizedBox(width: 4),
-                                          const Icon(
-                                            Icons.verified,
-                                            size: 14,
-                                            color: AppTheme.primary,
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    Text(
-                                      'Seller',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? Colors.white54
-                                            : Colors.grey[500],
+                                child: GestureDetector(
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => SellerShopPage(
+                                        sellerId: product.sellerId,
+                                        initialSellerName: product.sellerName,
                                       ),
                                     ),
-                                  ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '@${product.sellerName}',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: textColor,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          if (product.sellerVerified) ...[
+                                            const SizedBox(width: 4),
+                                            const Icon(
+                                              Icons.verified,
+                                              size: 14,
+                                              color: AppTheme.primary,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      Text(
+                                        'Seller · lihat toko',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark
+                                              ? Colors.white54
+                                              : Colors.grey[500],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 20,
+                                color: isDark ? Colors.white38 : Colors.grey[400],
                               ),
                             ],
                           ),
 
                           const SizedBox(height: 16),
                           GestureDetector(
-                            onTap: () =>
-                                setState(() => _chatVisible = !_chatVisible),
+                            onTap:
+                                _isOpeningChat ? null : () => _openChat(product),
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
@@ -369,80 +458,34 @@ class _DetailPageState extends State<DetailPage> {
                                     size: 20,
                                   ),
                                   const SizedBox(width: 10),
-                                  const Text(
-                                    'Chat seller untuk nego harga',
-                                    style: TextStyle(
-                                      color: AppTheme.primary,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
+                                  const Expanded(
+                                    child: Text(
+                                      'Chat seller untuk nego harga',
+                                      style: TextStyle(
+                                        color: AppTheme.primary,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
-                                  const Spacer(),
-                                  Icon(
-                                    _chatVisible
-                                        ? Icons.expand_less
-                                        : Icons.expand_more,
-                                    color: AppTheme.primary,
-                                  ),
+                                  _isOpeningChat
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppTheme.primary,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 14,
+                                          color: AppTheme.primary,
+                                        ),
                                 ],
                               ),
                             ),
                           ),
-
-                          if (_chatVisible) ...[
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _chatController,
-                                    decoration: InputDecoration(
-                                      hintText: 'Tulis penawaran...',
-                                      hintStyle: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey[400],
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 10,
-                                          ),
-                                    ),
-                                    style: TextStyle(
-                                      color: textColor,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (_chatController.text.isNotEmpty) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Pesan terkirim ke @${product.sellerName}!',
-                                          ),
-                                          backgroundColor: AppTheme.primary,
-                                          behavior: SnackBarBehavior.floating,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                      _chatController.clear();
-                                      setState(() => _chatVisible = false);
-                                    }
-                                  },
-                                  child: const Text('Kirim'),
-                                ),
-                              ],
-                            ),
-                          ],
 
                           const SizedBox(height: 20),
                         ],
@@ -468,40 +511,67 @@ class _DetailPageState extends State<DetailPage> {
               child: Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        try {
-                          await context.read<AppState>().addToCart(product);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Ditambahkan ke keranjang! 🛍️'),
-                                backgroundColor: AppTheme.primary,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                    child: Builder(builder: (context) {
+                      final api = SupabaseService();
+                      final isOwnProduct =
+                          api.currentUser != null && api.currentUser!.id == product.sellerId;
+
+                      if (isOwnProduct) {
+                        // Seller lihat produk jualannya sendiri -> tidak
+                        // bisa dimasukkan ke keranjang, arahkan ke halaman
+                        // edit produk (yang juga ada tombol Tambah Stok di
+                        // bawahnya) -- sama kayak alur "Produk Saya" di Profil.
+                        return ElevatedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SellerProductEditPage(product: product),
+                            ),
+                          ),
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Ini Produkmu · Kelola'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: Colors.grey[400],
+                          ),
+                        );
+                      }
+
+                      return ElevatedButton.icon(
+                        onPressed: () async {
+                          try {
+                            await context.read<AppState>().addToCart(product);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Ditambahkan ke keranjang! 🛍️'),
+                                  backgroundColor: AppTheme.primary,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(e.toString().replaceFirst('Exception: ', '')),
+                                  backgroundColor: Colors.red[400],
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
                           }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Gagal menambahkan ke keranjang: $e'),
-                                backgroundColor: Colors.red[400],
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                      label: const Text('Masukkan Keranjang'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
+                        },
+                        icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                        label: const Text('Masukkan Keranjang'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      );
+                    }),
                   ),
                 ],
               ),

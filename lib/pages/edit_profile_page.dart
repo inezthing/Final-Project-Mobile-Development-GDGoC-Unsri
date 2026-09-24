@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../data/app_state.dart';
 import '../theme/app_theme.dart';
+import '../data/location_service.dart';
 
 /// Halaman untuk edit profil user: ubah foto/avatar, username, tanggal lahir,
 /// dan lokasi. Avatar bisa berupa foto asli (upload) ATAU emoji preset
@@ -24,6 +25,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _selectedEmoji; // avatar emoji yang dipilih (null kalau pakai foto)
   File? _avatarFile; // foto avatar yang diambil dari kamera/galeri
   bool _isSaving = false;
+  bool _isFetchingLocation = false;
+
+  Future<void> _detectLocation() async {
+    if (_isFetchingLocation) return;
+    setState(() => _isFetchingLocation = true);
+    try {
+      final loc = await LocationService.getCurrentCityOrLocation();
+      if (loc != null && mounted) {
+        setState(() {
+          _locationCtrl.text = loc;
+        });
+      }
+    } catch (_) {
+      // Abaikan jika error
+    } finally {
+      if (mounted) {
+        setState(() => _isFetchingLocation = false);
+      }
+    }
+  }
 
   final _picker = ImagePicker();
 
@@ -354,10 +375,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
               // ==== Kolom lokasi ====
               TextFormField(
                 controller: _locationCtrl,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Lokasi',
                   hintText: 'Contoh: Palembang, Sumatra Selatan',
-                  prefixIcon: Icon(Icons.location_on_outlined),
+                  prefixIcon: const Icon(Icons.location_on_outlined),
+                  suffixIcon: _isFetchingLocation
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.my_location),
+                          tooltip: 'Dapatkan lokasi otomatis',
+                          onPressed: _detectLocation,
+                        ),
                 ),
                 validator: (v) => v == null || v.trim().isEmpty
                     ? 'Lokasi tidak boleh kosong'

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../data/app_state.dart';
 import '../theme/app_theme.dart';
 import 'community_page.dart';
 import 'explore_page.dart';
@@ -39,6 +41,14 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    // Gerbang suspend akun: kalau kena 3 laporan, akun disuspend 1 hari --
+    // tampilan normal (tab, FAB, dst) diganti layar suspend sampai waktunya
+    // habis.
+    final bannedUntil = context.watch<AppState>().bannedUntil;
+    if (bannedUntil != null && bannedUntil.isAfter(DateTime.now())) {
+      return _SuspendedScreen(bannedUntil: bannedUntil);
+    }
+
     return Scaffold(
       body: _buildPage(),
       // Tombol bulat "+" untuk jual barang, posisinya nyempil di tengah
@@ -48,6 +58,55 @@ class _MainNavigationState extends State<MainNavigation> {
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
+      ),
+    );
+  }
+}
+
+// Layar yang tampil menggantikan seluruh app kalau akun sedang disuspend
+// (kena 3 laporan dari reporter berbeda) -- diri sendiri tidak bisa akses
+// fitur apapun sampai `bannedUntil` lewat.
+class _SuspendedScreen extends StatelessWidget {
+  final DateTime bannedUntil;
+  const _SuspendedScreen({required this.bannedUntil});
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = bannedUntil.difference(DateTime.now());
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes % 60;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('🚫', style: TextStyle(fontSize: 56)),
+                const SizedBox(height: 16),
+                const Text(
+                  'Akun Disuspend Sementara',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Akunmu menerima 3 laporan dari pengguna berbeda dan '
+                  'disuspend selama 1 hari. Kamu bisa pakai lagi dalam '
+                  '${hours}j ${minutes}m.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton(
+                  onPressed: () => context.read<AppState>().loadUserProfile(),
+                  child: const Text('Cek Status'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

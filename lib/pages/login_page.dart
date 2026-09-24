@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../data/supabase_service.dart';
 import '../data/app_state.dart';
+import '../data/location_service.dart';
+import 'location_picker_page.dart';
 import 'main_navigation.dart';
 
 /// Halaman Login sekaligus Registrasi (satu halaman, formnya berubah-ubah
@@ -26,7 +28,82 @@ class _LoginPageState extends State<LoginPage> {
   bool _isRegister = false; // false = mode Login, true = mode Daftar
   bool _isLoading = false; // true selagi proses submit ke server berjalan
   bool _obscurePassword = true; // true = password disembunyikan (titik-titik)
+  bool _isFetchingLocation = false; // true selagi mengambil lokasi GPS
+  // Koordinat presisi hasil picker peta -- dikirim bareng field `location`
+  // (teks) ke profiles.latitude/longitude saat daftar, dipakai nanti buat
+  // hitung ongkir dari toko user ini ke pembeli.
+  double? _regLatitude;
+  double? _regLongitude;
   final _api = SupabaseService();
+
+  Future<void> _pickBirthDate() async {
+    final now = DateTime.now();
+    DateTime initialDate;
+    if (_birthDateController.text.isNotEmpty) {
+      initialDate = DateTime.tryParse(_birthDateController.text.trim()) ??
+          DateTime(now.year - 20, now.month, now.day);
+    } else {
+      initialDate = DateTime(now.year - 20, now.month, now.day);
+    }
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1940),
+      lastDate: now,
+      helpText: 'Pilih tanggal lahir',
+    );
+
+    if (picked != null) {
+      final y = picked.year.toString().padLeft(4, '0');
+      final m = picked.month.toString().padLeft(2, '0');
+      final d = picked.day.toString().padLeft(2, '0');
+      setState(() {
+        _birthDateController.text = '$y-$m-$d';
+      });
+    }
+  }
+
+  Future<void> _detectLocation() async {
+    if (_isFetchingLocation) return;
+    setState(() => _isFetchingLocation = true);
+    try {
+      final loc = await LocationService.getCurrentCityOrLocation();
+      if (loc != null && mounted) {
+        setState(() {
+          _locationController.text = loc;
+        });
+      }
+    } catch (_) {
+      // Abaikan jika error
+    } finally {
+      if (mounted) {
+        setState(() => _isFetchingLocation = false);
+      }
+    }
+  }
+
+  // Buka picker peta penuh (search + GPS + drag pin) supaya lokasi toko
+  // user tersimpan PRESISI (lat/lng), bukan cuma nama kota. Ini yang
+  // dipakai buat hitung ongkir nanti pas ada pembeli checkout ke toko ini.
+  Future<void> _pickLocationOnMap() async {
+    final picked = await Navigator.push<PickedLocation>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LocationPickerPage(
+          initialLat: _regLatitude,
+          initialLng: _regLongitude,
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _locationController.text =
+          picked.city.isNotEmpty ? '${picked.city}, ${picked.province}' : picked.formattedAddress;
+      _regLatitude = picked.latitude;
+      _regLongitude = picked.longitude;
+    });
+  }
 
   // Wajib dispose semua TextEditingController supaya tidak memory leak
   @override
@@ -66,6 +143,8 @@ class _LoginPageState extends State<LoginPage> {
           username: _usernameController.text.trim(),
           birthDate: _birthDateController.text.trim(),
           location: _locationController.text.trim(),
+          latitude: _regLatitude,
+          longitude: _regLongitude,
         );
 
         if (response.session != null && mounted) {
@@ -231,46 +310,85 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
-                              controller: _birthDateController,
-                              keyboardType: TextInputType.datetime,
-                              decoration: const InputDecoration(
-                                labelText: 'Tanggal lahir',
-                                hintText: 'Contoh: 2003-04-21',
-                                prefixIcon: Icon(Icons.cake_outlined),
-                              ),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) {
-                                  return 'Tanggal lahir tidak boleh kosong';
-                                }
-                                final parsed = DateTime.tryParse(val.trim());
-                                if (parsed == null) {
-                                  return 'Gunakan format YYYY-MM-DD';
-                                }
-                                if (parsed.isAfter(DateTime.now())) {
-                                  return 'Tanggal lahir tidak valid';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _locationController,
-                              decoration: const InputDecoration(
-                                labelText: 'Lokasi',
-                                hintText: 'Contoh: Palembang',
-                                prefixIcon: Icon(Icons.location_on_outlined),
-                              ),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) {
-                                  return 'Lokasi tidak boleh kosong';
-                                }
-                                if (val.trim().length < 3) {
-                                  return 'Lokasi minimal 3 karakter';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
+                               controller: _birthDateController,
+                               readOnly: true,
+                               onTap: _pickBirthDate,
+                               decoration: const InputDecoration(
+                                 labelText: 'Tanggal lahir',
+                                 hintText: 'Pilih tanggal lahir',
+                                 prefixIcon: Icon(Icons.cake_outlined),
+                               ),
+                               validator: (val) {
+                                 if (val == null || val.trim().isEmpty) {
+                                   return 'Tanggal lahir tidak boleh kosong';
+                                 }
+                                 final parsed = DateTime.tryParse(val.trim());
+                                 if (parsed == null) {
+                                   return 'Gunakan format YYYY-MM-DD';
+                                 }
+                                 if (parsed.isAfter(DateTime.now())) {
+                                   return 'Tanggal lahir tidak valid';
+                                 }
+                                 return null;
+                               },
+                             ),
+                             const SizedBox(height: 16),
+                             TextFormField(
+                               controller: _locationController,
+                               decoration: InputDecoration(
+                                 labelText: 'Lokasi',
+                                 hintText: 'Contoh: Palembang',
+                                 prefixIcon: const Icon(Icons.location_on_outlined),
+                                 suffixIcon: _isFetchingLocation
+                                     ? const SizedBox(
+                                         width: 20,
+                                         height: 20,
+                                         child: Padding(
+                                           padding: EdgeInsets.all(12.0),
+                                           child: CircularProgressIndicator(
+                                             strokeWidth: 2,
+                                           ),
+                                         ),
+                                       )
+                                     : IconButton(
+                                         icon: const Icon(Icons.my_location),
+                                         tooltip: 'Dapatkan lokasi otomatis',
+                                         onPressed: _detectLocation,
+                                       ),
+                               ),
+                               validator: (val) {
+                                 if (val == null || val.trim().isEmpty) {
+                                   return 'Lokasi tidak boleh kosong';
+                                 }
+                                 if (val.trim().length < 3) {
+                                   return 'Lokasi minimal 3 karakter';
+                                 }
+                                 return null;
+                               },
+                             ),
+                             Align(
+                               alignment: Alignment.centerLeft,
+                               child: TextButton.icon(
+                                 onPressed: _pickLocationOnMap,
+                                 icon: const Icon(Icons.map_outlined, size: 16),
+                                 label: Text(
+                                   _regLatitude == null
+                                       ? 'Pilih titik lokasi toko di peta (disarankan)'
+                                       : 'Titik lokasi tersimpan · ubah di peta',
+                                   style: const TextStyle(fontSize: 12),
+                                 ),
+                               ),
+                             ),
+                             const SizedBox(height: 4),
+                             Padding(
+                               padding: const EdgeInsets.symmetric(horizontal: 4),
+                               child: Text(
+                                 'Titik lokasi presisi dipakai buat menghitung ongkos kirim '
+                                 'otomatis ke pembeli nanti.',
+                                 style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                               ),
+                             ),
+                             const SizedBox(height: 16),
                           ],
                           // Kolom email — selalu tampil (baik Login maupun Daftar)
                           TextFormField(
@@ -315,8 +433,17 @@ class _LoginPageState extends State<LoginPage> {
                               if (val == null || val.isEmpty) {
                                 return 'Password tidak boleh kosong';
                               }
-                              if (val.length < 6) {
-                                return 'Password minimal 6 karakter';
+                              // Validasi kompleksitas HANYA di mode Daftar --
+                              // akun lama yang passwordnya cuma 6 karakter
+                              // polos tetap harus bisa login seperti biasa.
+                              if (_isRegister) {
+                                if (val.length < 8) {
+                                  return 'Minimal 8 karakter';
+                                }
+                                if (!RegExp(r'[A-Za-z]').hasMatch(val) ||
+                                    !RegExp(r'[0-9]').hasMatch(val)) {
+                                  return 'Kombinasikan huruf & angka';
+                                }
                               }
                               return null;
                             },
@@ -367,6 +494,9 @@ class _LoginPageState extends State<LoginPage> {
                       setState(() {
                         _isRegister = !_isRegister;
                         _formKey.currentState?.reset();
+                        if (_isRegister) {
+                          _detectLocation();
+                        }
                       });
                     },
                     child: Text(

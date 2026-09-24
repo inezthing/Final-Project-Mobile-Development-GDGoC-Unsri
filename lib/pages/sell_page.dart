@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../data/app_state.dart';
 import '../theme/app_theme.dart';
 import '../data/supabase_service.dart';
+import '../models/models.dart';
 
 // Halaman form untuk membuat listing produk baru
 class SellPage extends StatefulWidget {
@@ -21,6 +22,7 @@ class _SellPageState extends State<SellPage> {
   final _descController = TextEditingController();
   final _priceController = TextEditingController();
   final _sizeController = TextEditingController();
+  final _stockController = TextEditingController(text: '1');
 
   String _selectedCategory = 'Woman Fashion';
   String _selectedCondition = 'Preloved - Like New';
@@ -115,6 +117,7 @@ class _SellPageState extends State<SellPage> {
     _descController.dispose();
     _priceController.dispose();
     _sizeController.dispose();
+    _stockController.dispose();
     super.dispose();
   }
 
@@ -180,42 +183,90 @@ class _SellPageState extends State<SellPage> {
       return;
     }
 
+    final addedStock = int.tryParse(_stockController.text.trim()) ?? 1;
+
     setState(() => _isLoading = true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
-      // Upload foto dulu (kalau user pilih foto), baru buat produknya
-      String? imageUrl;
-      if (_imageFile != null) {
-        imageUrl = await SupabaseService().uploadProductImage(_imageFile!);
-      }
+      final name = _nameController.text.trim();
+      final brand = _brandController.text.trim();
 
-      final product = await SupabaseService().createProduct(
-        name: _nameController.text.trim(),
-        brand: _brandController.text.trim(),
-        description: _descController.text.trim(),
+      // Cek dulu: seller ini sudah pernah listing barang yang PERSIS sama
+      // (nama + brand + kategori) belum? Kalau sudah, jangan bikin listing
+      // duplikat -- cukup tambah stoknya saja di listing yang sudah ada.
+      final existing = await SupabaseService().findExistingProduct(
+        name: name,
+        brand: brand,
         category: _selectedCategory,
-        price: _parsePrice(_priceController.text.trim())!,
-        condition: _selectedCondition,
-        size: _sizeController.text.trim().isEmpty
-            ? 'One Size'
-            : _sizeController.text.trim(),
-        imageUrl: imageUrl,
-        paymentMethods: List.from(_selectedPayments),
       );
 
+      Product product;
+      var isRestock = false;
+
+      if (existing != null) {
+        isRestock = true;
+        product = await SupabaseService().restockProduct(
+          productId: existing['id'] as String,
+          addedStock: addedStock,
+        );
+        if (!mounted) return;
+        context.read<AppState>().upsertProduct(product);
+      } else {
+        // Upload foto dulu (kalau user pilih foto), baru buat produknya
+        String? imageUrl;
+        if (_imageFile != null) {
+          imageUrl = await SupabaseService().uploadProductImage(_imageFile!);
+        }
+
+        product = await SupabaseService().createProduct(
+          name: name,
+          brand: brand,
+          description: _descController.text.trim(),
+          category: _selectedCategory,
+          price: _parsePrice(_priceController.text.trim())!,
+          condition: _selectedCondition,
+          size: _sizeController.text.trim().isEmpty
+              ? 'One Size'
+              : _sizeController.text.trim(),
+          imageUrl: imageUrl,
+          paymentMethods: List.from(_selectedPayments),
+          stock: addedStock,
+        );
+        if (!mounted) return;
+        context.read<AppState>().addProduct(product);
+      }
+
       if (!mounted) return;
-      context.read<AppState>().addProduct(product);
       setState(() => _hasUnsavedChanges = false);
 
-      // Tampilkan dialog sukses setelah produk berhasil dilisting
+      // Tampilkan dialog sukses setelah produk berhasil dilisting/direstock
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          content: Column(
+          content: isRestock
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('📦', style: TextStyle(fontSize: 48)),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Stok berhasil ditambah!',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$name sekarang punya stok ${product.stock}.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    ),
+                  ],
+                )
+              : Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('🎉', style: TextStyle(fontSize: 48)),
@@ -540,6 +591,39 @@ class _SellPageState extends State<SellPage> {
                               }
                               return null;
                             },
+                          ),
+
+                          const SizedBox(height: 16),
+                          _buildField(
+                            context: context,
+                            controller: _stockController,
+                            label: 'Stok (jumlah barang)',
+                            hint: 'Contoh: 3',
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => _markChanged(),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Stok wajib diisi';
+                              }
+                              final parsed = int.tryParse(v.trim());
+                              if (parsed == null || parsed <= 0) {
+                                return 'Masukkan jumlah stok yang valid';
+                              }
+                              return null;
+                            },
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              'Kalau kamu sudah pernah listing barang yang sama '
+                              '(nama, brand & kategori sama persis), stok ini '
+                              'otomatis ditambahkan ke listing lama -- bukan '
+                              'bikin listing baru.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.white38 : Colors.grey[400],
+                              ),
+                            ),
                           ),
 
                           const SizedBox(height: 16),

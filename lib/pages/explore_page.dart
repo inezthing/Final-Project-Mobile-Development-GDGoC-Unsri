@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import 'package:shimmer/shimmer.dart';
 import '../data/app_state.dart';
+import '../data/supabase_service.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
+import '../widgets/avatar_widget.dart';
 import '../widgets/product_card.dart';
+import '../widgets/notification_bell_button.dart';
 import 'cart_page.dart';
+import 'seller_shop_page.dart';
 
 /// Halaman Explore: kolom pencarian + filter kategori (chip horizontal)
 /// + grid produk hasil pencarian/filter. Bisa dibuka dengan kategori awal
@@ -22,6 +27,13 @@ class _ExplorePageState extends State<ExplorePage> {
   final TextEditingController _searchController = TextEditingController();
   String _query = ''; // teks pencarian saat ini
   String _selectedCategory = 'All'; // kategori filter yang aktif
+
+  // Hasil pencarian USER/TOKO (beda dari filter produk di bawah -- ini
+  // query terpisah ke tabel profiles, karena tidak semua user ada di
+  // AppState.products, cuma yang jualan produk).
+  List<Map<String, dynamic>> _userResults = [];
+  bool _searchingUsers = false;
+  Timer? _debounce;
 
   // Daftar kategori untuk chip filter, "All" berarti tampilkan semua kategori
   static const List<String> _categories = [
@@ -47,7 +59,31 @@ class _ExplorePageState extends State<ExplorePage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  // Debounce 400ms -- biar tiap ketikan gak langsung nembak query ke server
+  // (bedanya sama filter produk yang murni lokal/instan di _getFiltered).
+  void _onQueryChanged(String value) {
+    setState(() => _query = value);
+    _debounce?.cancel();
+    if (value.trim().length < 2) {
+      setState(() {
+        _userResults = [];
+        _searchingUsers = false;
+      });
+      return;
+    }
+    setState(() => _searchingUsers = true);
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      final results = await SupabaseService().searchUsers(value);
+      if (!mounted) return;
+      setState(() {
+        _userResults = results;
+        _searchingUsers = false;
+      });
+    });
   }
 
   /// Grid shimmer placeholder selagi produk masih dimuat (sama seperti di home_page).
@@ -163,8 +199,9 @@ class _ExplorePageState extends State<ExplorePage> {
                         ),
                         child: TextField(
                           controller: _searchController,
-                          // Setiap ketikan langsung update _query -> grid ikut ter-filter real-time
-                          onChanged: (v) => setState(() => _query = v),
+                          // Setiap ketikan langsung update _query (filter produk
+                          // instan) + trigger pencarian user yang di-debounce
+                          onChanged: _onQueryChanged,
                           style: TextStyle(
                             color: isDark
                                 ? Colors.white
@@ -172,7 +209,7 @@ class _ExplorePageState extends State<ExplorePage> {
                             fontSize: 14,
                           ),
                           decoration: InputDecoration(
-                            hintText: 'Cari nama, brand, kategori...',
+                            hintText: 'Cari produk atau @username toko...',
                             hintStyle: TextStyle(
                               color: isDark ? Colors.white38 : Colors.grey[400],
                               fontSize: 13,
@@ -192,7 +229,12 @@ class _ExplorePageState extends State<ExplorePage> {
                                       color: Colors.grey,
                                     ),
                                     onPressed: () {
-                                      setState(() => _query = '');
+                                      _debounce?.cancel();
+                                      setState(() {
+                                        _query = '';
+                                        _userResults = [];
+                                        _searchingUsers = false;
+                                      });
                                       _searchController.clear();
                                     },
                                   )
@@ -209,6 +251,8 @@ class _ExplorePageState extends State<ExplorePage> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  NotificationBellButton(isDark: isDark, size: 46),
                   const SizedBox(width: 10),
                   // Ikon keranjang + badge jumlah item (sama seperti di home_page)
                   Consumer<AppState>(
@@ -322,6 +366,89 @@ class _ExplorePageState extends State<ExplorePage> {
               ),
             ),
 
+            // ── Hasil pencarian TOKO/USER (beda dari produk) ──────────
+            if (_query.trim().length >= 2 && (_userResults.isNotEmpty || _searchingUsers))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Toko',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white54 : Colors.grey[500],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 76,
+                      child: _searchingUsers
+                          ? const Center(
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _userResults.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 14),
+                              itemBuilder: (context, i) {
+                                final u = _userResults[i];
+                                final username = (u['username'] as String?) ?? 'User';
+                                final avatar = (u['avatar_url'] as String?) ?? '\u{1F337}';
+                                final verified = u['is_verified'] == true;
+                                return GestureDetector(
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => SellerShopPage(
+                                        sellerId: u['id'] as String,
+                                        initialSellerName: username,
+                                      ),
+                                    ),
+                                  ),
+                                  child: SizedBox(
+                                    width: 64,
+                                    child: Column(
+                                      children: [
+                                        AvatarWidget(avatar: avatar, radius: 26),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                username,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isDark ? Colors.white70 : Colors.grey[700],
+                                                ),
+                                              ),
+                                            ),
+                                            if (verified) ...[
+                                              const SizedBox(width: 2),
+                                              const Icon(Icons.verified, size: 10, color: AppTheme.primary),
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    Divider(height: 20, color: isDark ? Colors.white12 : Colors.grey[200]),
+                  ],
+                ),
+              ),
+
             // ── Grid hasil pencarian/filter, jumlah kolom menyesuaikan lebar layar ──
             Expanded(
               child: Consumer<AppState>(
@@ -342,7 +469,7 @@ class _ExplorePageState extends State<ExplorePage> {
                     );
                   }
 
-                  final filtered = _getFiltered(state.products);
+                  final filtered = _getFiltered(state.browsableProducts);
 
                   // Kalau hasil filter/pencarian kosong, tampilkan pesan "tidak ditemukan"
                   if (filtered.isEmpty) {

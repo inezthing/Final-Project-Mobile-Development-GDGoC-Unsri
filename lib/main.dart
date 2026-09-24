@@ -2,28 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:app_links/app_links.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:async';
 import 'data/app_state.dart';
 import 'data/secure_storage_service.dart';
+import 'data/supabase_service.dart';
+import 'data/push_notification_service.dart';
 import 'theme/app_theme.dart';
 import 'pages/login_page.dart';
 import 'pages/main_navigation.dart';
+import 'pages/email_verified_page.dart';
+import 'firebase_options.dart';
+...
+await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+// Navigator key global -- dipakai supaya deep link (link verifikasi email)
+// bisa langsung buka halaman "Akun Terhubung" dari MANAPUN posisi user
+// saat itu (splash/login/lagi di tengah app), tanpa butuh BuildContext
+// dari widget tertentu.
+final navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   // Wajib dipanggil sebelum akses plugin native sebelum runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load file .env (kalau tidak ada, lanjut pakai nilai default di bawah)
+  String? supabaseUrl;
+  String? supabaseAnonKey;
+
+  // Load file .env (kalau tidak ada / gagal, lanjut pakai nilai default di bawah)
   try {
     await dotenv.load(fileName: '.env');
+    if (dotenv.isInitialized) {
+      supabaseUrl = dotenv.maybeGet('SUPABASE_URL');
+      supabaseAnonKey = dotenv.maybeGet('SUPABASE_ANON_KEY');
+    }
   } catch (e) {
     debugPrint(
-        'Peringatan: File .env tidak ditemukan, menggunakan nilai default.');
+        'Peringatan: File .env tidak ditemukan atau gagal dimuat: $e. Menggunakan nilai default.');
   }
 
   // Ambil kredensial Supabase dari .env, fallback ke nilai default kalau kosong
-  final supabaseUrl =
-      dotenv.env['SUPABASE_URL'] ?? 'https://plmoyaxwjefvswtxpigq.supabase.co';
-  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ??
+  supabaseUrl ??= 'https://plmoyaxwjefvswtxpigq.supabase.co';
+  supabaseAnonKey ??=
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbW95YXh3amVmdnN3dHhwaWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0ODA1NzMsImV4cCI6MjA5ODA1NjU3M30.GLaU4IXTRGn0vXRAwlboWTPrEkk8DvP_-0m42cp0TNg';
 
   // Inisialisasi koneksi ke Supabase (auth pakai PKCE flow + secure storage)
@@ -37,6 +59,19 @@ void main() async {
       pkceAsyncStorage: SecureStorageService(),
     ),
   );
+
+  // Inisialisasi Firebase (WAJIB ada file firebase_options.dart hasil
+  // `flutterfire configure` + google-services.json/GoogleService-Info.plist
+  // -- lihat panduan setup. Tanpa ini, push notification tidak akan jalan).
+  try {
+    await Firebase.initializeApp();
+    // Handler push waktu app lagi background/terminated, WAJIB didaftarkan
+    // di top level (bukan di dalam widget) sebelum runApp
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    await PushNotificationService.instance.init();
+  } catch (e) {
+    debugPrint('Peringatan: Gagal inisialisasi Firebase/push notification: $e');
+  }
 
   runApp(const WhimsifyApp());
 }
@@ -62,6 +97,9 @@ class _AppRoot extends StatefulWidget {
 }
 
 class _AppRootState extends State<_AppRoot> {
+  StreamSubscription<Uri>? _linkSubscription;
+  StreamSubscription<AuthState>? _authSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +107,96 @@ class _AppRootState extends State<_AppRoot> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppState>().loadThemePreference();
     });
+    _initAuthListener();
+    _initDeepLinks();
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  // Dengerin perubahan status auth dari Supabase (JWT access token cuma
+  // hidup ~1 jam, tapi biasanya auto-refresh diam-diam pakai refresh token
+  // -- lihat `autoRefreshToken: true` di main()). Yang kita tangani KHUSUS
+  // di sini cuma kasus refresh token-nya sendiri sudah tidak valid lagi
+  // (`tokenRefreshFailed`): misal user ganti password dari device lain,
+  // akun di-suspend, atau refresh token sudah lama sekali tidak dipakai.
+  // Tanpa listener ini, user bakal keliatan "diam" di halaman yang lagi
+  // dibuka padahal semua request ke server bakal gagal 401 -- jadi wajib
+  // dipaksa balik ke Login dengan pesan yang jelas.
+  //
+  // Sengaja TIDAK menangani event `signedOut` di sini, karena logout
+  // manual (lihat SettingsPage) sudah nge-handle navigasinya sendiri --
+  // kalau dobel ditangani di sini juga, halaman Login bisa ke-push 2x.
+  void _initAuthListener() {
+    _authSubscription =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event != AuthChangeEvent.tokenRefreshFailed) return;
+      final ctx = navigatorKey.currentContext;
+      if (ctx == null) return;
+      ctx.read<AppState>().handleSessionExpired();
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (_) => false,
+      );
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        const SnackBar(
+          content: Text('Sesi kamu berakhir. Silakan masuk kembali.'),
+        ),
+      );
+    });
+  }
+
+  // Tangkap link verifikasi email (skema `whimsify://auth-callback`) baik
+  // waktu app lagi kebuka (uriLinkStream) maupun waktu app dibuka PERTAMA
+  // KALI lewat link itu (getInitialLink -- misal app sebelumnya ke-close).
+  Future<void> _initDeepLinks() async {
+    final appLinks = AppLinks();
+
+    try {
+      final initialUri = await appLinks.getInitialLink();
+      if (initialUri != null) _handleIncomingLink(initialUri);
+    } catch (e) {
+      debugPrint('Gagal ambil initial deep link: $e');
+    }
+
+    _linkSubscription = appLinks.uriLinkStream.listen(
+      _handleIncomingLink,
+      onError: (e) => debugPrint('Deep link stream error: $e'),
+    );
+  }
+
+  Future<void> _handleIncomingLink(Uri uri) async {
+    // Cuma proses link yang memang skema callback auth kita (lihat
+    // SupabaseService.authCallbackDeepLink), biar tidak ke-trigger sama
+    // deep link lain (kalau nanti ada fitur share link, dll)
+    final expected = Uri.parse(SupabaseService.authCallbackDeepLink);
+    if (uri.scheme != expected.scheme || uri.host != expected.host) return;
+
+    try {
+      // Tukar kode PKCE di URL jadi session aktif -- ini yang bikin user
+      // otomatis "connected"/login begitu link di email di-klik, tanpa
+      // perlu balik ke halaman Login & masukin password lagi.
+      await Supabase.instance.client.auth.getSessionFromUrl(uri);
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => const EmailVerifiedPage()),
+      );
+    } catch (e) {
+      debugPrint('Gagal proses deep link verifikasi email: $e');
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Link verifikasi sudah kedaluwarsa/tidak valid. Coba daftar ulang atau minta link baru.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -76,6 +204,7 @@ class _AppRootState extends State<_AppRoot> {
     // Dengerin perubahan themeMode aja, biar rebuild-nya efisien
     final themeMode = context.select<AppState, ThemeMode>((s) => s.themeMode);
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Whimsify',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
@@ -105,16 +234,31 @@ class _SplashScreenState extends State<SplashScreen> {
 
   // Cek sesi login: kalau ada, load data & masuk ke Main. Kalau tidak, ke Login
   Future<void> _checkAuthAndRoute() async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session != null) {
-      await context.read<AppState>().loadAllData();
+    try {
+      await Future.delayed(const Duration(milliseconds: 800));
       if (!mounted) return;
-      _navigateTo(const MainNavigation());
-    } else {
-      _navigateTo(const LoginPage());
+
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null) {
+        // Pre-fetch data dengan timeout agar tidak pernah stuck di splash screen
+        try {
+          await context
+              .read<AppState>()
+              .loadAllData()
+              .timeout(const Duration(seconds: 4));
+        } catch (e) {
+          debugPrint('Peringatan: Gagal memuat data awal di splash screen: $e');
+        }
+        if (!mounted) return;
+        _navigateTo(const MainNavigation());
+      } else {
+        _navigateTo(const LoginPage());
+      }
+    } catch (e) {
+      debugPrint('Error saat pemeriksaan sesi autentikasi: $e');
+      if (mounted) {
+        _navigateTo(const LoginPage());
+      }
     }
   }
 

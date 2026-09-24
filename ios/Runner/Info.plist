@@ -28,6 +28,10 @@
 	<string>Whimsify membutuhkan kamera untuk mengambil foto produk.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Whimsify membutuhkan akses galeri untuk memilih foto produk.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Whimsify membutuhkan lokasi Anda untuk mendeteksi kota asal secara otomatis.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Whimsify membutuhkan lokasi Anda untuk mendeteksi kota asal secara otomatis.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -49,5 +53,14 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>whimsify</string>
+			</array>
+  </dict>
+</array>
 </dict>
 </plist>

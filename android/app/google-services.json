@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "819883756765",
+    "firebase_url": "https://whimsify-app-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "whimsify-app",
+    "storage_bucket": "whimsify-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:819883756765:android:06c1f8ed7a8bc7d1769f34",
+        "android_client_info": {
+          "package_name": "com.example.whimsify"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5yqfl9tIEuH3j9UGxVdouWWize4X0_N0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

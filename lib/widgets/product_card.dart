@@ -8,7 +8,11 @@ import '../pages/detail_page.dart';
 // Kartu produk untuk ditampilkan di grid/list (home, explore, dll)
 class ProductCard extends StatelessWidget {
   final Product product;
-  const ProductCard({super.key, required this.product});
+  // Override opsional: kalau diisi, tap kartu manggil ini alih-alih buka
+  // DetailPage seperti biasa -- dipakai di Profil > Produk Saya buat buka
+  // dialog tambah stok cepat.
+  final VoidCallback? onTap;
+  const ProductCard({super.key, required this.product, this.onTap});
 
   // Format harga jadi lebih ringkas, contoh: 1500000 -> "1.5jt", 25000 -> "25.000"
   String _formatPrice(double price) {
@@ -29,12 +33,14 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Tap kartu -> buka halaman detail produk
+    // Tap kartu -> buka halaman detail produk (atau jalankan onTap custom
+    // kalau ada, misal dialog tambah stok di Profil > Produk Saya)
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => DetailPage(product: product)),
-      ),
+      onTap: onTap ??
+          () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => DetailPage(product: product)),
+              ),
       child: Card(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

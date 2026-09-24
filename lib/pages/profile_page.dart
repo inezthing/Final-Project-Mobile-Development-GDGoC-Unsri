@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../data/app_state.dart';
+import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_card.dart';
+import 'seller_product_edit_page.dart';
 import 'settings_page.dart';
+import 'chat_list_page.dart';
 import '../data/supabase_service.dart';
 
 // Halaman profil: info user, statistik, produk & postingan milik sendiri
@@ -68,20 +71,39 @@ class ProfilePage extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              Semantics(
-                                label: 'Buka pengaturan',
-                                child: IconButton(
-                                  onPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const SettingsPage(),
+                              Row(
+                                children: [
+                                  Semantics(
+                                    label: 'Buka pesan',
+                                    child: IconButton(
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const ChatListPage(),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.chat_bubble_outline,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
-                                  icon: const Icon(
-                                    Icons.settings_outlined,
-                                    color: Colors.white,
+                                  Semantics(
+                                    label: 'Buka pengaturan',
+                                    child: IconButton(
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const SettingsPage(),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.settings_outlined,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
                             ],
                           ),
@@ -257,7 +279,17 @@ class ProfilePage extends StatelessWidget {
                           width: 150,
                           child: Padding(
                             padding: const EdgeInsets.only(right: 10),
-                            child: ProductCard(product: myProducts[index]),
+                            child: ProductCard(
+                              product: myProducts[index],
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => SellerProductEditPage(
+                                    product: myProducts[index],
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
