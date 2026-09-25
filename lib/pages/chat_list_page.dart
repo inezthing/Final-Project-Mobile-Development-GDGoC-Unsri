@@ -58,7 +58,8 @@ class _ChatListPageState extends State<ChatListPage> {
               return ListView(
                 children: [
                   SizedBox(height: MediaQuery.of(context).size.height * 0.25),
-                  Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey[300]),
+                  Icon(Icons.chat_bubble_outline,
+                      size: 48, color: Colors.grey[300]),
                   const SizedBox(height: 12),
                   Center(
                     child: Text(
@@ -82,7 +83,8 @@ class _ChatListPageState extends State<ChatListPage> {
                   leading: AvatarWidget(avatar: convo.otherAvatar, radius: 22),
                   title: Text(
                     '@${convo.otherUsername}',
-                    style: TextStyle(fontWeight: FontWeight.w800, color: textColor),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800, color: textColor),
                   ),
                   subtitle: Text(
                     convo.lastMessage?.isNotEmpty == true
@@ -108,6 +110,7 @@ class _ChatListPageState extends State<ChatListPage> {
                           productId: convo.productId,
                           productPrice: convo.productPrice,
                           sellerId: convo.sellerId,
+                          otherUserId: convo.otherUserId,
                         ),
                       ),
                     );

@@ -116,6 +116,7 @@ class AppState extends ChangeNotifier {
         loadCart(),
         loadPosts(),
         loadAddresses(),
+        loadMyOrders(),
         loadNotifications(),
         loadFollowedCommunities(),
         loadBlockedUserIds(),

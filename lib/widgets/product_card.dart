@@ -182,39 +182,39 @@ class ProductCard extends StatelessWidget {
             Expanded(
               flex: 4,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       product.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: isDark ? Colors.white : const Color(0xFF2D1B2E),
-                        height: 1.2,
+                        height: 1.1,
                       ),
                     ),
-                    const SizedBox(height: 2),
                     Text(
                       product.brand,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 9.5,
                         color: isDark ? Colors.white54 : Colors.grey[500],
                       ),
                     ),
-                    const Spacer(),
                     Text(
                       'Rp ${_formatPrice(product.price)}',
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w800,
                         color: AppTheme.primary,
                       ),
                     ),
-                    const SizedBox(height: 2),
                     Text(
                       product.condition,
                       maxLines: 1,

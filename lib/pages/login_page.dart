@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_logo.dart';
 import '../data/supabase_service.dart';
 import '../data/app_state.dart';
 import '../data/location_service.dart';
@@ -98,8 +99,9 @@ class _LoginPageState extends State<LoginPage> {
     );
     if (picked == null || !mounted) return;
     setState(() {
-      _locationController.text =
-          picked.city.isNotEmpty ? '${picked.city}, ${picked.province}' : picked.formattedAddress;
+      _locationController.text = picked.city.isNotEmpty
+          ? '${picked.city}, ${picked.province}'
+          : picked.formattedAddress;
       _regLatitude = picked.latitude;
       _regLongitude = picked.longitude;
     });
@@ -196,6 +198,28 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final launched = await _api.signInWithGoogle();
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Google sign-in tidak dapat dibuka. Coba lagi.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -222,25 +246,7 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // App Logo/Icon Whimsical
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primary.withOpacity(0.2),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Center(
-                      child: Text('🌷', style: TextStyle(fontSize: 48)),
-                    ),
-                  ),
+                  const AppLogo(),
                   const SizedBox(height: 16),
                   const Text(
                     'Whimsify',
@@ -310,85 +316,88 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
-                               controller: _birthDateController,
-                               readOnly: true,
-                               onTap: _pickBirthDate,
-                               decoration: const InputDecoration(
-                                 labelText: 'Tanggal lahir',
-                                 hintText: 'Pilih tanggal lahir',
-                                 prefixIcon: Icon(Icons.cake_outlined),
-                               ),
-                               validator: (val) {
-                                 if (val == null || val.trim().isEmpty) {
-                                   return 'Tanggal lahir tidak boleh kosong';
-                                 }
-                                 final parsed = DateTime.tryParse(val.trim());
-                                 if (parsed == null) {
-                                   return 'Gunakan format YYYY-MM-DD';
-                                 }
-                                 if (parsed.isAfter(DateTime.now())) {
-                                   return 'Tanggal lahir tidak valid';
-                                 }
-                                 return null;
-                               },
-                             ),
-                             const SizedBox(height: 16),
-                             TextFormField(
-                               controller: _locationController,
-                               decoration: InputDecoration(
-                                 labelText: 'Lokasi',
-                                 hintText: 'Contoh: Palembang',
-                                 prefixIcon: const Icon(Icons.location_on_outlined),
-                                 suffixIcon: _isFetchingLocation
-                                     ? const SizedBox(
-                                         width: 20,
-                                         height: 20,
-                                         child: Padding(
-                                           padding: EdgeInsets.all(12.0),
-                                           child: CircularProgressIndicator(
-                                             strokeWidth: 2,
-                                           ),
-                                         ),
-                                       )
-                                     : IconButton(
-                                         icon: const Icon(Icons.my_location),
-                                         tooltip: 'Dapatkan lokasi otomatis',
-                                         onPressed: _detectLocation,
-                                       ),
-                               ),
-                               validator: (val) {
-                                 if (val == null || val.trim().isEmpty) {
-                                   return 'Lokasi tidak boleh kosong';
-                                 }
-                                 if (val.trim().length < 3) {
-                                   return 'Lokasi minimal 3 karakter';
-                                 }
-                                 return null;
-                               },
-                             ),
-                             Align(
-                               alignment: Alignment.centerLeft,
-                               child: TextButton.icon(
-                                 onPressed: _pickLocationOnMap,
-                                 icon: const Icon(Icons.map_outlined, size: 16),
-                                 label: Text(
-                                   _regLatitude == null
-                                       ? 'Pilih titik lokasi toko di peta (disarankan)'
-                                       : 'Titik lokasi tersimpan · ubah di peta',
-                                   style: const TextStyle(fontSize: 12),
-                                 ),
-                               ),
-                             ),
-                             const SizedBox(height: 4),
-                             Padding(
-                               padding: const EdgeInsets.symmetric(horizontal: 4),
-                               child: Text(
-                                 'Titik lokasi presisi dipakai buat menghitung ongkos kirim '
-                                 'otomatis ke pembeli nanti.',
-                                 style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                               ),
-                             ),
-                             const SizedBox(height: 16),
+                              controller: _birthDateController,
+                              readOnly: true,
+                              onTap: _pickBirthDate,
+                              decoration: const InputDecoration(
+                                labelText: 'Tanggal lahir',
+                                hintText: 'Pilih tanggal lahir',
+                                prefixIcon: Icon(Icons.cake_outlined),
+                              ),
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Tanggal lahir tidak boleh kosong';
+                                }
+                                final parsed = DateTime.tryParse(val.trim());
+                                if (parsed == null) {
+                                  return 'Gunakan format YYYY-MM-DD';
+                                }
+                                if (parsed.isAfter(DateTime.now())) {
+                                  return 'Tanggal lahir tidak valid';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _locationController,
+                              decoration: InputDecoration(
+                                labelText: 'Lokasi',
+                                hintText: 'Contoh: Palembang',
+                                prefixIcon:
+                                    const Icon(Icons.location_on_outlined),
+                                suffixIcon: _isFetchingLocation
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: Padding(
+                                          padding: EdgeInsets.all(12.0),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      )
+                                    : IconButton(
+                                        icon: const Icon(Icons.my_location),
+                                        tooltip: 'Dapatkan lokasi otomatis',
+                                        onPressed: _detectLocation,
+                                      ),
+                              ),
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Lokasi tidak boleh kosong';
+                                }
+                                if (val.trim().length < 3) {
+                                  return 'Lokasi minimal 3 karakter';
+                                }
+                                return null;
+                              },
+                            ),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                onPressed: _pickLocationOnMap,
+                                icon: const Icon(Icons.map_outlined, size: 16),
+                                label: Text(
+                                  _regLatitude == null
+                                      ? 'Pilih titik lokasi toko di peta (disarankan)'
+                                      : 'Titik lokasi tersimpan · ubah di peta',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                'Titik lokasi presisi dipakai buat menghitung ongkos kirim '
+                                'otomatis ke pembeli nanti.',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey[500]),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
                           ],
                           // Kolom email — selalu tampil (baik Login maupun Daftar)
                           TextFormField(
@@ -486,6 +495,27 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
+                  if (!_isRegister) ...[
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        icon: const Icon(Icons.g_mobiledata, size: 28),
+                        label: const Text('Lanjutkan dengan Google'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textColor,
+                          side: BorderSide(
+                              color: isDark
+                                  ? Colors.white24
+                                  : Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   // Toggle Login/Register — tombol untuk pindah antara mode
                   // Login dan Daftar, sekalian reset validasi form

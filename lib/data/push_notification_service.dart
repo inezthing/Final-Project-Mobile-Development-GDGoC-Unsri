@@ -53,7 +53,13 @@ class PushNotificationService {
     if (_initialized) return;
     _initialized = true;
 
-    await _messaging.requestPermission(alert: true, badge: true, sound: true);
+    final settings = await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+    debugPrint('Izin push notification: ${settings.authorizationStatus}');
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings();
@@ -108,7 +114,11 @@ class PushNotificationService {
   Future<void> registerToken() async {
     try {
       final token = await _messaging.getToken();
-      if (token != null) await _saveToken(token);
+      if (token == null) {
+        debugPrint('FCM token belum tersedia untuk device ini.');
+        return;
+      }
+      await _saveToken(token);
     } catch (e) {
       debugPrint('Gagal ambil FCM token: $e');
     }
@@ -127,6 +137,7 @@ class PushNotificationService {
         },
         onConflict: 'fcm_token',
       );
+      debugPrint('FCM token berhasil didaftarkan untuk user $userId.');
     } catch (e) {
       debugPrint('Gagal simpan FCM token ke Supabase: $e');
     }

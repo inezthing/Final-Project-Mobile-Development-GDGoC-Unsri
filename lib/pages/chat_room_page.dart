@@ -6,6 +6,7 @@ import '../data/app_state.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_widget.dart';
+import 'seller_shop_page.dart';
 
 /// Halaman ruang obrolan 1-on-1 untuk satu percakapan (product + buyer + seller).
 ///
@@ -30,6 +31,7 @@ class ChatRoomPage extends StatefulWidget {
   final String? productId;
   final double? productPrice;
   final String? sellerId;
+  final String? otherUserId;
 
   const ChatRoomPage({
     super.key,
@@ -40,6 +42,7 @@ class ChatRoomPage extends StatefulWidget {
     this.productId,
     this.productPrice,
     this.sellerId,
+    this.otherUserId,
   });
 
   @override
@@ -56,7 +59,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   // ---- ML Kit Smart Reply ----
   final SmartReply _smartReply = SmartReply();
   List<String> _suggestions = [];
-  String? _lastSuggestedFor; // id pesan terakhir yang sudah di-generate sarannya
+  String?
+      _lastSuggestedFor; // id pesan terakhir yang sudah di-generate sarannya
 
   @override
   void initState() {
@@ -122,10 +126,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       final result = await _smartReply.suggestReplies();
       if (!mounted) return;
       setState(() {
-        _suggestions =
-            result.status == SmartReplySuggestionResultStatus.success
-                ? result.suggestions.take(3).toList()
-                : [];
+        _suggestions = result.status == SmartReplySuggestionResultStatus.success
+            ? result.suggestions.take(3).toList()
+            : [];
       });
     } catch (e) {
       // Model belum siap / gagal load -- diamkan saja, suggestion chips
@@ -210,7 +213,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
               if (originalPrice > 0 && value >= originalPrice) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
                   const SnackBar(
-                    content: Text('Tawaran harus lebih rendah dari harga normal.'),
+                    content:
+                        Text('Tawaran harus lebih rendah dari harga normal.'),
                   ),
                 );
                 return;
@@ -223,7 +227,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       ),
     );
 
-    if (result == null || widget.productId == null || widget.sellerId == null) return;
+    if (result == null || widget.productId == null || widget.sellerId == null)
+      return;
     setState(() => _isSendingOffer = true);
     try {
       await _api.createOffer(
@@ -303,14 +308,29 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     final textColor = isDark ? Colors.white : const Color(0xFF2D1B2E);
     final myId = _api.currentUser?.id;
     final isSeller = widget.sellerId != null && myId == widget.sellerId;
-    final canOffer = !isSeller && widget.productId != null && widget.sellerId != null;
+    final canOffer =
+        !isSeller && widget.productId != null && widget.sellerId != null;
 
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
         title: Row(
           children: [
-            AvatarWidget(avatar: widget.otherAvatar, radius: 16),
+            GestureDetector(
+              onTap: widget.otherUserId != null &&
+                      widget.otherUserId == widget.sellerId
+                  ? () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SellerShopPage(
+                            sellerId: widget.otherUserId!,
+                            initialSellerName: widget.otherUsername,
+                          ),
+                        ),
+                      )
+                  : null,
+              child: AvatarWidget(avatar: widget.otherAvatar, radius: 16),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -319,7 +339,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                 children: [
                   Text(
                     '@${widget.otherUsername}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
@@ -375,7 +396,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                       Row(
                         children: [
                           Icon(
-                            isPending ? Icons.local_offer_outlined : Icons.check_circle,
+                            isPending
+                                ? Icons.local_offer_outlined
+                                : Icons.check_circle,
                             size: 18,
                             color: isPending ? AppTheme.primary : Colors.green,
                           ),
@@ -385,7 +408,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                               isPending
                                   ? 'Tawaran Rp ${latest.offeredPrice.toInt()} menunggu konfirmasi'
                                   : 'Tawaran Rp ${latest.offeredPrice.toInt()} diterima!',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 13),
                             ),
                           ),
                         ],
@@ -418,8 +442,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () => _addNegotiatedToCart(latest),
-                            icon: const Icon(Icons.shopping_bag_outlined, size: 16),
-                            label: const Text('Tambah ke Keranjang (Harga Nego)'),
+                            icon: const Icon(Icons.shopping_bag_outlined,
+                                size: 16),
+                            label:
+                                const Text('Tambah ke Keranjang (Harga Nego)'),
                           ),
                         ),
                       ],
@@ -507,7 +533,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   itemCount: _suggestions.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, i) => ActionChip(
-                    label: Text(_suggestions[i], style: const TextStyle(fontSize: 12)),
+                    label: Text(_suggestions[i],
+                        style: const TextStyle(fontSize: 12)),
                     backgroundColor: AppTheme.blush,
                     onPressed: () => _messageController.text = _suggestions[i],
                   ),
@@ -529,7 +556,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                       style: TextStyle(color: textColor, fontSize: 13),
                       decoration: InputDecoration(
                         hintText: 'Tulis pesan...',
-                        hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                        hintStyle:
+                            TextStyle(fontSize: 13, color: Colors.grey[400]),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 10,

@@ -6,6 +6,7 @@ import 'package:app_links/app_links.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:async';
+import 'firebase_options.dart';
 import 'data/app_state.dart';
 import 'data/secure_storage_service.dart';
 import 'data/supabase_service.dart';
@@ -14,6 +15,7 @@ import 'theme/app_theme.dart';
 import 'pages/login_page.dart';
 import 'pages/main_navigation.dart';
 import 'pages/email_verified_page.dart';
+import 'widgets/app_logo.dart';
 
 // Navigator key global -- dipakai supaya deep link (link verifikasi email)
 // bisa langsung buka halaman "Akun Terhubung" dari MANAPUN posisi user
@@ -57,23 +59,11 @@ void main() async {
     ),
   );
 
-  // Inisialisasi Firebase (WAJIB ada file firebase_options.dart hasil
-  // `flutterfire configure` + google-services.json/GoogleService-Info.plist
-  // -- lihat panduan setup. Tanpa ini, push notification tidak akan jalan).
-  //
-  // CATATAN: begitu `flutterfire configure` berhasil dan file
-  // lib/firebase_options.dart sudah muncul, ganti baris
-  // `await Firebase.initializeApp();` di bawah jadi:
-  //
-  //   import 'firebase_options.dart';   <-- taruh di bagian import atas
-  //   ...
-  //   await Firebase.initializeApp(
-  //     options: DefaultFirebaseOptions.currentPlatform,
-  //   );
-  //
-  // Sebelum file itu ada, JANGAN diubah -- biarkan polos seperti ini.
+  // Firebase config berasal dari `flutterfire configure`.
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     // Handler push waktu app lagi background/terminated, WAJIB didaftarkan
     // di top level (bukan di dalam widget) sebelum runApp
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -108,6 +98,7 @@ class _AppRoot extends StatefulWidget {
 class _AppRootState extends State<_AppRoot> {
   StreamSubscription<Uri>? _linkSubscription;
   StreamSubscription<AuthState>? _authSubscription;
+  bool _isCompletingGoogleSignIn = false;
 
   @override
   void initState() {
@@ -145,6 +136,12 @@ class _AppRootState extends State<_AppRoot> {
   void _initAuthListener() {
     _authSubscription =
         Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn &&
+          Supabase.instance.client.auth.currentUser?.appMetadata['provider'] ==
+              'google') {
+        _completeGoogleSignIn();
+        return;
+      }
       if (data.event != AuthChangeEvent.signedOut) return;
       final ctx = navigatorKey.currentContext;
       if (ctx == null) return;
@@ -159,6 +156,23 @@ class _AppRootState extends State<_AppRoot> {
         ),
       );
     });
+  }
+
+  Future<void> _completeGoogleSignIn() async {
+    if (_isCompletingGoogleSignIn) return;
+    final ctx = navigatorKey.currentContext;
+    if (ctx == null) return;
+    _isCompletingGoogleSignIn = true;
+    try {
+      // loadAllData juga mendaftarkan token FCM untuk akun yang baru masuk.
+      await ctx.read<AppState>().loadAllData();
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+        (_) => false,
+      );
+    } finally {
+      _isCompletingGoogleSignIn = false;
+    }
   }
 
   // Tangkap link verifikasi email (skema `whimsify://auth-callback`) baik
@@ -191,7 +205,14 @@ class _AppRootState extends State<_AppRoot> {
       // Tukar kode PKCE di URL jadi session aktif -- ini yang bikin user
       // otomatis "connected"/login begitu link di email di-klik, tanpa
       // perlu balik ke halaman Login & masukin password lagi.
-      await Supabase.instance.client.auth.getSessionFromUrl(uri);
+      final response =
+          await Supabase.instance.client.auth.getSessionFromUrl(uri);
+      final provider =
+          response.session.user.appMetadata['provider']?.toString();
+      if (provider == 'google') {
+        await _completeGoogleSignIn();
+        return;
+      }
       navigatorKey.currentState?.push(
         MaterialPageRoute(builder: (_) => const EmailVerifiedPage()),
       );
@@ -294,24 +315,7 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withOpacity(0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: Text('🌷', style: TextStyle(fontSize: 48)),
-              ),
-            ),
+            const AppLogo(),
             const SizedBox(height: 16),
             const Text(
               'Whimsify',

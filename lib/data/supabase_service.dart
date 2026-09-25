@@ -62,6 +62,19 @@ class SupabaseService {
     }
   }
 
+  // OAuth Google kembali melalui deep link yang sama dengan verifikasi email.
+  Future<bool> signInWithGoogle() async {
+    try {
+      return await _client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: authCallbackDeepLink,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      throw Exception(_friendlyError(e));
+    }
+  }
+
   // Skema deep link buat balikin user ke app ini setelah klik link
   // verifikasi email (lihat main.dart buat handler-nya, dan
   // SETUP_GUIDE_fitur_baru.md buat setup native + Supabase Dashboard-nya).
@@ -231,7 +244,7 @@ class SupabaseService {
           .upsert({
             'id': user.id,
             'username': fallback['username'],
-            'avatar_url': metadata['avatar_url'] ?? '\u{1F337}',
+            'avatar_url': fallback['avatar_url'],
             'birth_date': metadata['birth_date'],
             'location': metadata['location'],
           })
@@ -249,8 +262,13 @@ class SupabaseService {
     final metadata = user.userMetadata ?? {};
     return {
       'id': user.id,
-      'username': metadata['username'] ?? user.email?.split('@').first ?? 'User',
-      'avatar_url': metadata['avatar_url'] ?? '\u{1F337}',
+      'username': metadata['username'] ??
+          metadata['full_name'] ??
+          metadata['name'] ??
+          user.email?.split('@').first ??
+          'User',
+      'avatar_url':
+          metadata['avatar_url'] ?? metadata['picture'] ?? '\u{1F337}',
       'birth_date': metadata['birth_date'],
       'location': metadata['location'],
       'created_at': user.createdAt,
@@ -321,7 +339,8 @@ class SupabaseService {
             .select('*, profiles!products_seller_id_fkey(*), favorites(*)')
             .order('listed_at', ascending: false);
       } catch (e) {
-        debugPrint('Fetch products with relations failed, retrying basic query: $e');
+        debugPrint(
+            'Fetch products with relations failed, retrying basic query: $e');
         response = await _client
             .from('products')
             .select()
@@ -337,8 +356,9 @@ class SupabaseService {
       // purchaseCount default 0 -- lihat catch di bawah).
       Map<String, int> purchaseCounts = {};
       try {
-        final statsResponse =
-            await _client.from('product_purchase_stats').select('product_id, purchase_count');
+        final statsResponse = await _client
+            .from('product_purchase_stats')
+            .select('product_id, purchase_count');
         for (final row in (statsResponse as List)) {
           final pid = row['product_id']?.toString();
           if (pid == null) continue;
@@ -395,7 +415,8 @@ class SupabaseService {
             'payment_methods': paymentMethods,
           })
           .eq('id', productId)
-          .eq('seller_id', currentUser!.id) // jaga-jaga: hanya boleh edit produk sendiri
+          .eq('seller_id',
+              currentUser!.id) // jaga-jaga: hanya boleh edit produk sendiri
           .select('*, profiles!products_seller_id_fkey(*)')
           .single();
       return Product.fromJson(response, currentUserId: currentUser!.id);
@@ -535,8 +556,7 @@ class SupabaseService {
     try {
       await _client
           .from('products')
-          .update({'stock': newStock < 0 ? 0 : newStock})
-          .eq('id', productId);
+          .update({'stock': newStock < 0 ? 0 : newStock}).eq('id', productId);
     } catch (e) {
       debugPrint('Error updating stock: $e');
       throw Exception(_friendlyError(e));
@@ -739,8 +759,7 @@ class SupabaseService {
       if (isDefault) {
         await _client
             .from('addresses')
-            .update({'is_default': false})
-            .eq('user_id', currentUser!.id);
+            .update({'is_default': false}).eq('user_id', currentUser!.id);
       }
 
       final payload = {
@@ -913,7 +932,8 @@ class SupabaseService {
   // (langkah PERTAMA setelah order masuk, sebelum "Kirim Barang")
   Future<void> markOrderProcessing(String orderId) async {
     try {
-      await _client.rpc('mark_order_processing', params: {'p_order_id': orderId});
+      await _client
+          .rpc('mark_order_processing', params: {'p_order_id': orderId});
     } catch (e) {
       debugPrint('Error marking order processing: $e');
       throw Exception(_friendlyError(e));
@@ -933,7 +953,8 @@ class SupabaseService {
   // Aksi pembeli: tombol "Pesanan Selesai" -> ubah status jadi 'selesai'
   Future<void> markOrderCompleted(String orderId) async {
     try {
-      await _client.rpc('mark_order_completed', params: {'p_order_id': orderId});
+      await _client
+          .rpc('mark_order_completed', params: {'p_order_id': orderId});
     } catch (e) {
       debugPrint('Error marking order completed: $e');
       throw Exception(_friendlyError(e));
@@ -965,8 +986,7 @@ class SupabaseService {
     try {
       await _client
           .from('notifications')
-          .update({'is_read': true})
-          .eq('id', notificationId);
+          .update({'is_read': true}).eq('id', notificationId);
     } catch (e) {
       debugPrint('Error marking notification read: $e');
     }
@@ -994,9 +1014,8 @@ class SupabaseService {
     try {
       final userId = currentUser?.id;
       final blockedIds = await fetchBlockedUserIds();
-      var query = _client
-          .from('community_posts')
-          .select('*, profiles!community_posts_user_id_fkey(*), post_votes(*), community_replies(count)');
+      var query = _client.from('community_posts').select(
+          '*, profiles!community_posts_user_id_fkey(*), post_votes(*), community_replies(count)');
       if (blockedIds.isNotEmpty) {
         query = query.not('user_id', 'in', '(${blockedIds.join(',')})');
       }
@@ -1094,7 +1113,8 @@ class SupabaseService {
           .eq('community_follows.user_id', currentUser!.id)
           .order('name');
       return (response as List)
-          .map((json) => Community.fromJson(json as Map<String, dynamic>, currentUserId: currentUser!.id))
+          .map((json) => Community.fromJson(json as Map<String, dynamic>,
+              currentUserId: currentUser!.id))
           .toList();
     } catch (e) {
       debugPrint('Error fetching followed communities: $e');
@@ -1106,13 +1126,15 @@ class SupabaseService {
   // lengkap dengan status sudah di-follow atau belum
   Future<List<Community>> fetchAllCommunities({String query = ''}) async {
     try {
-      var q = _client.from('communities').select('*, community_follows(user_id)');
+      var q =
+          _client.from('communities').select('*, community_follows(user_id)');
       if (query.trim().isNotEmpty) {
         q = q.ilike('name', '%${query.trim()}%');
       }
       final response = await q.order('name');
       return (response as List)
-          .map((json) => Community.fromJson(json as Map<String, dynamic>, currentUserId: currentUser?.id))
+          .map((json) => Community.fromJson(json as Map<String, dynamic>,
+              currentUserId: currentUser?.id))
           .toList();
     } catch (e) {
       debugPrint('Error fetching communities: $e');
@@ -1448,7 +1470,8 @@ class SupabaseService {
             'responded_at': DateTime.now().toIso8601String(),
           })
           .eq('id', offerId)
-          .eq('seller_id', currentUser!.id) // cuma seller pemilik produk yang boleh respon
+          .eq('seller_id',
+              currentUser!.id) // cuma seller pemilik produk yang boleh respon
           .select()
           .single();
 

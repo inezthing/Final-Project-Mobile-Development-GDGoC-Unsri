@@ -1,275 +1,188 @@
-# 🌷 Whimsify — Preloved Marketplace App
+# Whimsify — Preloved Marketplace
 
-> *Give your cute items a new home.*
+> Give your cute items a new home.
 
-Whimsify adalah aplikasi mobile marketplace untuk barang-barang preloved bertema whimsical, sebagian besar terinspirasi dari aplikasi Carousell. Cocok buat kamu yang koleksi pernak-pernik, fashion, dan mainan!
+Whimsify adalah aplikasi marketplace barang preloved dan komunitas kolektor. Aplikasi dibuat dengan Flutter, Supabase, dan Firebase Cloud Messaging.
 
----
+![Logo Whimsify](assets/branding/whimsify_logo.jpeg)
 
-## Screenshot
+## Fitur yang tersedia
 
-<table>
-  <tr>
-    <td align="center"><b>Login</b></td>
-    <td align="center"><b>Home</b></td>
-    <td align="center"><b>Explore</b></td>
-    <td align="center"><b>Detail</b></td>
-  </tr>
-  <tr>
-    <td><img src="screenshot_app/login.jpg" width="180"/></td>
-    <td><img src="screenshot_app/home.jpg" width="180"/></td>
-    <td><img src="screenshot_app/explore.jpg" width="180"/></td>
-    <td><img src="screenshot_app/detail.jpg" width="180"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Sell</b></td>
-    <td align="center"><b>Komunitas</b></td>
-    <td align="center"><b>Profil</b></td>
-    <td align="center"><b>Settings</b></td>
-  </tr>
-  <tr>
-    <td><img src="screenshot_app/sell.jpg" width="180"/></td>
-    <td><img src="screenshot_app/community.jpg" width="180"/></td>
-    <td><img src="screenshot_app/profile.jpg" width="180"/></td>
-    <td><img src="screenshot_app/settings.jpg" width="180"/></td>
-  </tr>
-</table>
+- Daftar/masuk dengan email dan password, serta Google OAuth melalui Supabase Auth. Verifikasi email dan deep link `whimsify://auth-callback` juga ditangani aplikasi.
+- Jelajahi, cari, filter, lihat detail, favoritkan, buat, edit, restock, dan hapus listing produk; unggah foto ke Supabase Storage.
+- Keranjang, pembelian langsung, checkout, alamat pengiriman, pilihan pembayaran, daftar pesanan pembeli, dan pengelolaan pesanan seller sampai status selesai.
+- Profil publik dan toko seller, avatar, produk yang dijual/dibeli, dan statistik profil.
+- Komunitas: buat/jelajahi komunitas, follow, posting WTS/WTB/diskusi, balas, vote, laporkan, dan blokir pengguna. Relevansi topik memberi konfirmasi ringan; pemeriksaan toxicity memakai Google Cloud Natural Language bila API key tersedia.
+- Chat antar pengguna dan penawaran harga.
+- Notifikasi dalam aplikasi dan push untuk pesanan. Trigger database membuat baris notifikasi, Database Webhook memanggil Edge Function `send-push`, lalu function mengirim melalui Firebase Cloud Messaging.
+- Tema terang/gelap/sistem dan penyimpanan preferensi lokal.
 
----
+Fitur yang memakai layanan eksternal seperti Google login, peta, moderasi teks, dan push membutuhkan konfigurasi credential/provider seperti dijelaskan di bawah.
 
-## Arsitektur Aplikasi
+## Screenshot aplikasi
 
-Whimsify menggunakan arsitektur berlapis yang memisahkan UI, state, service, dan data.
+| Login | Beranda | Jelajahi | Detail produk |
+|---|---|---|---|
+| ![Login](screenshot_app/login.jpeg) | ![Home](screenshot_app/home.jpeg) | ![Explore](screenshot_app/explore.jpeg) | ![Detail](screenshot_app/detail.jpeg) |
 
-```mermaid
-graph TD
-    subgraph UI["🖼️ UI Layer (lib/pages & lib/widgets)"]
-        A[LoginPage] 
-        B[HomePage]
-        C[ExplorePage]
-        D[DetailPage]
-        E[SellPage]
-        F[CommunityPage]
-        G[ProfilePage]
-        H[SettingsPage]
-    end
+| Jual | Komunitas | Profil | Pengaturan |
+|---|---|---|---|
+| ![Jual](screenshot_app/sell.jpeg) | ![Komunitas](screenshot_app/community.jpeg) | ![Profil](screenshot_app/profile.jpeg) | ![Pengaturan](screenshot_app/settings.jpeg) |
 
-    subgraph State["⚙️ State Layer (Provider)"]
-        I[AppState<br/>ChangeNotifier]
-    end
+## Versi dan dependensi
 
-    subgraph Service["🔌 Service Layer"]
-        J[SupabaseService<br/>Singleton]
-        K[SecureStorageService<br/>flutter_secure_storage]
-    end
+- Aplikasi: `whimsify` versi `1.0.0+1` (version/build number dari `pubspec.yaml`).
+- Dart SDK constraint: `>=3.3.0 <4.0.0`; gunakan Flutter stable yang menyertakan Dart dalam rentang tersebut.
+- `pubspec.lock` mengunci versi transitive yang ter-resolve. Dependensi langsung dan constraint saat ini:
 
-    subgraph Backend["☁️ Backend - Supabase"]
-        L[(PostgreSQL<br/>Database)]
-        M[Auth<br/>JWT + PKCE]
-        N[Storage<br/>Product Images]
-    end
+Sebagian SDK Firebase masih dideklarasikan sebagai dependency, tetapi jalur autentikasi dan CRUD aplikasi saat ini menggunakan Supabase. Firebase Core/Messaging dipakai untuk push notification.
 
-    subgraph Local["💾 Local Storage"]
-        O[Keychain / Keystore<br/>JWT Token]
-        P[SharedPreferences<br/>Theme Mode]
-    end
+| Paket | Constraint | Peran |
+|---|---:|---|
+| `provider` | `^6.1.1` | State management |
+| `supabase_flutter` | `^2.6.0` | Auth, database, storage, Edge Functions |
+| `firebase_core` | `^3.15.2` | Firebase initialization |
+| `firebase_auth` | `^5.3.1` | SDK tersedia; login user aplikasi saat ini melalui Supabase Auth |
+| `cloud_firestore` | `^5.4.4` | SDK dideklarasikan; data aplikasi saat ini disimpan di Supabase |
+| `firebase_storage` | `^12.3.4` | SDK dideklarasikan; foto aplikasi saat ini memakai Supabase Storage |
+| `firebase_messaging` | `^15.2.10` | FCM push token dan pesan |
+| `flutter_local_notifications` | `^22.3.1` | Menampilkan push saat aplikasi foreground |
+| `flutter_dotenv` | `^5.1.0` | Konfigurasi environment lokal |
+| `flutter_secure_storage` | `^9.2.2` | Penyimpanan sesi aman |
+| `shared_preferences` | `^2.3.2` | Preferensi lokal |
+| `image_picker` | `^1.1.2` | Memilih foto produk/avatar |
+| `geolocator` | `^14.0.2` | Lokasi perangkat |
+| `geocoding` | `^5.0.0` | Konversi alamat/koordinat |
+| `google_maps_flutter` | `^2.7.0` | Peta alamat |
+| `google_mlkit_smart_reply` | `^0.13.0` | Smart Reply |
+| `app_links` | `^6.3.0` | Deep link auth |
+| `http` | `^1.2.1` | Google Cloud Natural Language API |
+| `shimmer` | `^3.0.0` | Loading placeholder |
+| `uuid` | `^4.4.0` | Pembuatan identifier |
+| `flutter_test`, `integration_test` | Flutter SDK | Unit, widget, integration test |
+| `flutter_lints` | `^3.0.0` | Aturan analisis Dart |
 
-    UI -->|"read/watch"| State
-    UI -->|"actions"| State
-    State -->|"calls"| Service
-    J -->|"queries"| Backend
-    K -->|"stores token"| Local
-    M -->|"token"| K
-    I -->|"theme"| P
-```
-
-## ✨ Fitur Aplikasi
-
-### Home Page
-- Sapaan personal dengan nama user
-- Tombol keranjang dengan **badge counter dinamis**
-- **Banner carousel otomatis** — 3 slide berisi pesan eco-friendly, komunitas, dan promo Kartini 10%
-- **Slider kategori** horizontal: Woman Fashion, Man Fashion, Health & Beauty, Keychain, Trinket, Shoes, Playing Card, Sticker
-- **Top Picks** — grid produk dari seller terverifikasi, responsif mengikuti ukuran layar
-- Tombol favorit ❤️ per produk dengan perubahan state lokal
-
-### Explore Page
-- Search bar full-featured (nama, brand, kategori, deskripsi, username seller)
-- Filter kategori horizontal dengan animasi chip
-- Counter hasil pencarian
-- Empty state saat tidak ada hasil
-- GridView responsif: mobile 2 kolom, tablet 3 kolom, desktop 4 kolom
-
-### Detail Page
-- **Hero animation** dari Home ke Detail
-- Info lengkap produk: nama, brand, harga, kondisi, ukuran, kategori, deskripsi
-- Metode pembayaran yang diterima seller
-- Info seller + badge verified
-- Toggle chat untuk nego harga ke seller
-- Tombol tambah ke keranjang
-
-### Sell Page
-- Input foto placeholder (simulasi galeri)
-- Form: Nama produk, Brand, Kategori (dropdown), Kondisi (dropdown), Ukuran, Deskripsi
-- Input harga + chip pilihan metode pembayaran (multi-select)
-- Validasi form lengkap: field kosong & minimal karakter
-- **PopScope** — konfirmasi dialog sebelum keluar jika form belum disimpan
-- Produk langsung muncul di Explore & Home setelah listing berhasil
-- Layout responsif via `LayoutBuilder`: mobile 1 kolom, tablet 2 kolom
-
-### Komunitas Page
-- Filter komunitas: Hirono, Nyota, TCG Pokémon, Trinket, Mofusand, Snoopy, Labubu, Molly
-- Post bertipe **WTS / WTB / Discussion** (color-coded)
-- Klik post → modal bottom sheet percakapan + kolom reply
-- FAB untuk buat postingan baru (tipe, komunitas, judul, konten)
-- Timestamp relatif (*x menit / jam / hari yang lalu*)
-
-### Profile Page
-- Avatar, nama, username
-- Info: umur, tanggal bergabung, lokasi
-- Statistik: produk dijual, favorit, postingan komunitas
-- Horizontal scroll produk yang sedang dijual user
-- Daftar postingan komunitas user
-
-### Settings Page
-- Toggle tema: **Terang / Gelap / Sistem**
-- `Switch.adaptive` — mengikuti platform Android/iOS
-- Toggle notifikasi: chat & price alert
-- Info versi aplikasi & misi Whimsify
-- Konfirmasi dialog saat logout
-
-### Cart Page
-- Daftar produk di keranjang
-- Total harga otomatis
-- Tombol checkout
-- Empty state dengan CTA ke Explore
-
----
-
-## Teknologi & Dependensi
-
-| Package | Versi | Kegunaan |
-|---|---|---|
-| `flutter` | SDK | Framework utama |
-| `provider` | `^6.1.1` | State management global |
-| `supabase_flutter` | `^2.6.0` | Backend & autentikasi |
-| `flutter_secure_storage` | `^9.2.2` | Simpan JWT token di Keychain/Keystore |
-| `shared_preferences` | `^2.3.2` | Simpan preferensi tema |
-| `flutter_dotenv` | `^5.1.0` | Manajemen environment variable |
-| `shimmer` | `^3.0.0` | Loading skeleton effect |
-| `image_picker` | `^1.1.2` | Pilih gambar dari galeri/kamera |
-
-**Dart SDK:** `>=3.3.0 <4.0.0`
-
----
-
-## Backend
-
-Aplikasi ini menggunakan **[Supabase](https://supabase.com)** sebagai backend-as-a-service.
-
-| Kategori | Detail |
-|---|---|
-| **Database** | PostgreSQL via Supabase |
-| **Auth** | Supabase Auth — JWT + PKCE flow |
-| **Storage** | Supabase Storage bucket `product_images` |
-| **Token Storage** | `flutter_secure_storage` → Keychain (iOS) / EncryptedSharedPreferences (Android) |
-
-### Tabel Database
-
-| Tabel | Kolom Utama | Keterangan |
-|---|---|---|
-| `profiles` | `id`, `username`, `avatar_url`, `is_verified` | Data profil user |
-| `products` | `id`, `name`, `brand`, `category`, `price`, `condition`, `seller_id`, `image_url` | Listing produk |
-| `favorites` | `user_id`, `product_id` | Produk yang di-favorit |
-| `cart_items` | `user_id`, `product_id`, `quantity` | Item di keranjang |
-| `community_posts` | `id`, `user_id`, `community`, `type`, `title`, `content` | Postingan komunitas |
-| `post_likes` | `user_id`, `post_id` | Like postingan |
-| `community_replies` | `post_id`, `user_id`, `content` | Balasan postingan |
-
-
-### Konfigurasi `.env`
-
-Buat file `.env` di root project dan isi dengan:
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-```
-
-
----
-
-## Cara Menjalankan Aplikasi
+## Menjalankan aplikasi
 
 ### Prasyarat
 
-Pastikan kamu sudah menginstall:
+- Flutter SDK stable dan Dart sesuai constraint di atas.
+- Android Studio/emulator atau perangkat Android. Xcode diperlukan untuk build/run iOS di macOS.
+- Project Supabase yang sudah memiliki schema, tabel, RLS policies, SQL functions, dan Storage buckets yang digunakan aplikasi.
+- Konfigurasi Firebase untuk project/platform jika ingin menggunakan push notification.
 
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) (versi stable terbaru, Dart `>=3.0.0`)
-- [Android Studio](https://developer.android.com/studio) atau [VS Code](https://code.visualstudio.com/) dengan ekstensi Flutter
-- Emulator Android/iOS atau perangkat fisik
-- Akun [Supabase](https://supabase.com) (untuk backend)
+### Clone, konfigurasi, dan run
 
-### Langkah-Langkah
-
-**1. Clone repository**
 ```bash
-git clone https://github.com/inezthing/Midterm-Mobile-Development-GDGoC-Unsri.git
-cd Midterm-Mobile-Development-GDGoC-Unsri
-```
-
-**2. Install dependensi**
-```bash
+git clone https://github.com/inezthing/Final-Project-Mobile-Development-GDGoC-Unsri.git
+cd Final-Project-Mobile-Development-GDGoC-Unsri
 flutter pub get
 ```
 
-**3. Setup environment variable**
+Buat `.env` di root project:
 
-Buat file `.env` di root project:
-```bash
-cp .env.example .env   # jika tersedia, atau buat manual
+```env
+SUPABASE_URL=https://<PROJECT_REF>.supabase.co
+SUPABASE_ANON_KEY=<SUPABASE_ANON_KEY>
+CLOUD_NL_API_KEY=<GOOGLE_CLOUD_NATURAL_LANGUAGE_API_KEY>
 ```
-Isi dengan Supabase URL dan Anon Key kamu (lihat bagian Backend di atas).
 
-**4. Jalankan aplikasi**
+`CLOUD_NL_API_KEY` opsional. Jika tidak diisi atau API gagal, moderation request fail-open (konten diizinkan) sesuai implementasi saat ini. Jangan pernah memasukkan Supabase `service_role` key atau Firebase service-account private key ke `.env` aplikasi Flutter atau repository. Mobile app hanya memakai Supabase anon/publishable key; pembatasan data wajib dijaga dengan RLS.
+
+Firebase native config harus cocok dengan package/bundle aplikasi:
+
+- Android: `android/app/google-services.json`.
+- iOS: `ios/Runner/GoogleService-Info.plist`.
+- `lib/firebase_options.dart` dibuat/diperbarui oleh FlutterFire CLI (`flutterfire configure`).
+
+Aktifkan Google provider di Supabase Auth, masukkan OAuth client ID/secret dari Google Cloud Console, lalu tambahkan `whimsify://auth-callback` ke Authentication → URL Configuration → Redirect URLs. Bundle ID/package ID, URL scheme, dan OAuth client harus cocok untuk platform target.
+
+Jalankan di device/emulator aktif:
+
 ```bash
-# Pastikan emulator/device sudah aktif
+flutter devices
 flutter run
 ```
 
-Untuk build release APK:
+Build Android APK:
+
 ```bash
 flutter build apk --release
 ```
 
----
+## Backend dan endpoint
 
-## 📁 Struktur Proyek
+Project Supabase yang saat ini terhubung di source menggunakan project ref `plmoyaxwjefvswtxpigq`. Endpointnya:
 
+| Layanan | Endpoint |
+|---|---|
+| Supabase project | `https://plmoyaxwjefvswtxpigq.supabase.co` |
+| Auth API | `https://plmoyaxwjefvswtxpigq.supabase.co/auth/v1` |
+| REST API | `https://plmoyaxwjefvswtxpigq.supabase.co/rest/v1` |
+| Storage API | `https://plmoyaxwjefvswtxpigq.supabase.co/storage/v1` |
+| Push Edge Function | `https://plmoyaxwjefvswtxpigq.supabase.co/functions/v1/send-push` |
+| Moderasi teks (opsional) | `https://language.googleapis.com/v2/documents:moderateText` |
+| FCM HTTP v1 (server-to-server) | `https://fcm.googleapis.com/v1/projects/<FIREBASE_PROJECT_ID>/messages:send` |
+
+Endpoint Google OAuth mengikuti konfigurasi provider Supabase dan tidak dipanggil langsung oleh aplikasi. Jangan menaruh credential rahasia di dokumentasi publik.
+
+### Database dan Storage
+
+Kode aplikasi mengakses tabel Supabase berikut (policy/schema harus cocok dengan operasi aplikasi): `profiles`, `addresses`, `products`, `product_purchase_stats`, `favorites`, `cart_items`, `orders`, `order_items`, `notifications`, `device_tokens`, `communities`, `community_follows`, `community_posts`, `community_replies`, `post_votes`, `blocked_users`, `conversations`, `messages`, `product_offers`, dan `reports`.
+
+Storage buckets yang dipakai adalah `avatars` dan `product_images`. Checkout dan alur status pesanan memanggil PostgreSQL RPC `checkout_cart`, `place_order`, `mark_order_processing`, `mark_order_shipped`, dan `mark_order_completed`. Komunitas juga memanggil RPC `create_community` dan `report_content`. Terapkan schema/function dan RLS dari migrasi/setup backend project yang sesuai sebelum menjalankan operasi tersebut; jangan mengasumsikan membuat tabel saja sudah cukup.
+
+### Push notification: webhook → Edge Function → FCM
+
+1. Aplikasi mendaftarkan FCM token user ke tabel `device_tokens` setelah login.
+2. Trigger database pada `order_items` membuat notifikasi `order_placed` untuk buyer dan `order_incoming` untuk seller. SQL trigger ini ada di `supabase/migrations/20260925000100_order_push_notifications.sql`.
+3. Supabase Database Webhook untuk `public.notifications`, event `INSERT`, mengirim payload row baru dengan HTTP `POST` ke endpoint `send-push` di atas.
+4. Edge Function membaca token berdasarkan `record.user_id` dan mengirim notification melalui FCM HTTP v1.
+
+Deploy/update function dari root repository memakai Supabase CLI:
+
+```bash
+supabase login
+supabase link --project-ref <PROJECT_REF>
+supabase functions deploy send-push
 ```
-lib/
-├── main.dart                  # Root app + ChangeNotifierProvider + bottom navigation
-├── theme/
-│   └── app_theme.dart         # ThemeData light & dark, ColorScheme.fromSeed
-├── models/
-│   └── models.dart            # Product, CommunityPost, CartItem
-├── data/
-│   ├── mock_data.dart         # Data lokal hardcoded (produk & komunitas)
-│   ├── app_state.dart         # ChangeNotifier — state management global
-│   └── secure_storage_service.dart  # JWT storage di Keychain/Keystore
-├── pages/
-│   ├── home_page.dart         # StatelessWidget, CustomScrollView, SliverGrid
-│   ├── explore_page.dart      # StatefulWidget, search + filter + GridView
-│   ├── detail_page.dart       # StatefulWidget, Hero, chat toggle, add to cart
-│   ├── sell_page.dart         # StatefulWidget, Form + PopScope + LayoutBuilder
-│   ├── community_page.dart    # StatefulWidget, post list + bottom sheet reply
-│   ├── profile_page.dart      # StatelessWidget + Consumer, stats + product list
-│   ├── settings_page.dart     # StatefulWidget, Switch.adaptive, theme toggle
-│   └── cart_page.dart         # StatelessWidget + Consumer, cart list + checkout
-└── widgets/
-    ├── product_card.dart       # StatelessWidget + Consumer (favorit)
-    ├── banner_carousel.dart    # StatefulWidget, PageView + Timer auto-slide
-    └── category_slider.dart   # StatefulWidget, horizontal ListView
+
+Function membutuhkan secret `FIREBASE_SERVICE_ACCOUNT` berupa JSON service account Firebase dengan `client_email`, `project_id`, dan private key PEM PKCS#8 yang memiliki izin mengirim FCM. Masukkan secret melalui Supabase Dashboard → Edge Functions → Secrets (atau CLI secrets), jangan commit file JSON/private key. `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` dipakai server-side oleh Supabase Edge Function untuk mencari device token; `service_role` tidak boleh masuk Flutter app/web client.
+
+Di Supabase Dashboard, buat Database Webhook dengan pengaturan: schema `public`, table `notifications`, event `INSERT`, method `POST`, URL `https://<PROJECT_REF>.supabase.co/functions/v1/send-push`. Simpan Authorization/secret webhook sesuai opsi proteksi yang dikonfigurasi, lalu pastikan log Edge Function menerima request dan tabel `device_tokens` memiliki token aktif. Push foreground ditampilkan oleh `flutter_local_notifications`; tap notifikasi order diarahkan ke daftar pesanan buyer atau seller.
+
+## Otomatisasi test dan hasil terakhir
+
+Panduan langkah demi langkah ada di [TESTING.md](TESTING.md). Perintah utama:
+
+```bash
+flutter test test --reporter expanded
+flutter analyze
+flutter devices
+flutter test integration_test/navigation_journey_test.dart -d <device-id>
 ```
 
+Screenshot hasil run yang kamu kirim menunjukkan **unit/widget test lulus** dan **integration test `navigation_journey_test.dart` lulus**. Integration run juga membangun `app-debug.apk`. Unit/widget suite saat ini berisi 9 test yang mencakup parsing produk, harga checkout, relevansi topik, avatar, dan kartu produk. Skenario integration memeriksa alur navigasi profil dan pintasan pesanan.
 
+| Unit dan widget test | Integration test |
+|---|---|
+| ![Unit dan widget test berhasil](screenshot_app/test_unit_widget.png) | ![Integration test navigasi berhasil](screenshot_app/test_integration.png) |
+
+Pembacaan hasilnya: `All tests passed!` berarti assertion pada test otomatis di run tersebut lulus. Integration test memakai Supabase client palsu untuk menguji UI/navigasi, jadi hasil ini **belum** membuktikan login Google, operasi CRUD ke Supabase online, webhook, ataupun push FCM sungguhan. Hasil terakhir `flutter analyze --no-pub` yang tercatat selesai dengan exit code 0 dan melaporkan 47 info/warning, termasuk API deprecated dan lint yang masih bisa dirapikan.
+
+## Struktur repository
+
+```text
+lib/                 UI, model, state management, dan service Flutter
+assets/branding/     Logo sumber untuk UI aplikasi
+test/                Unit test dan widget test
+integration_test/    Skenario uji alur navigasi aplikasi
+supabase/functions/  Supabase Edge Functions
+supabase/migrations/ SQL migration untuk backend
+android/ ios/ web/   Platform app dan launcher assets
+TESTING.md           Panduan menjalankan test
+```
+
+## Lisensi dan kontribusi
+
+Repository ini adalah project pembelajaran Whimsify. Sebelum deploy publik, tinjau ulang RLS, konfigurasi OAuth, hak akses API key, secrets backend, serta kebijakan data dan layanan pihak ketiga.

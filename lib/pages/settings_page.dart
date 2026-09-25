@@ -5,8 +5,6 @@ import '../theme/app_theme.dart';
 import 'login_page.dart';
 import 'edit_profile_page.dart';
 import 'address_list_page.dart';
-import 'order_list_page.dart';
-import 'seller_orders_page.dart';
 
 /// Halaman pengaturan aplikasi: ganti tema, akses edit profil, info aplikasi,
 /// dan tombol logout.
@@ -205,31 +203,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   Divider(
                     color: isDark ? Colors.white10 : Colors.grey[100],
                     height: 20,
-                  ),
-                  _navRow(
-                    label: '📦 Pesanan Saya',
-                    isDark: isDark,
-                    textColor: textColor,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const OrderListPage()),
-                    ),
-                  ),
-                  Divider(
-                    color: isDark ? Colors.white10 : Colors.grey[100],
-                    height: 20,
-                  ),
-                  // Pesanan yang masuk ke toko user ini (POV penjual) --
-                  // tetap ditampilkan ke semua user karena siapa pun bisa
-                  // jual barang di Whimsify, bukan cuma role khusus "seller"
-                  _navRow(
-                    label: '🏬 Pesanan Masuk (Toko Saya)',
-                    isDark: isDark,
-                    textColor: textColor,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SellerOrdersPage()),
-                    ),
                   ),
                 ],
               ),

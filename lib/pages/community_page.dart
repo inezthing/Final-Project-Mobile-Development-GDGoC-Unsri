@@ -7,6 +7,7 @@ import '../data/supabase_service.dart';
 import '../data/content_moderation_service.dart';
 import '../widgets/avatar_widget.dart';
 import 'community_browser_sheet.dart';
+import 'seller_shop_page.dart';
 
 // Halaman komunitas: filter by komunitas, list postingan, buat post baru
 class CommunityPage extends StatefulWidget {
@@ -51,7 +52,8 @@ class _CommunityPageState extends State<CommunityPage> {
     final contentCtrl = TextEditingController();
     String selectedType = 'Discussion';
     final followedNames = state.followedCommunities.map((c) => c.name).toList();
-    String? selectedCommunity = followedNames.isNotEmpty ? followedNames.first : null;
+    String? selectedCommunity =
+        followedNames.isNotEmpty ? followedNames.first : null;
     final formKey = GlobalKey<FormState>();
 
     showModalBottomSheet(
@@ -96,7 +98,6 @@ class _CommunityPageState extends State<CommunityPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-
                     if (followedNames.isEmpty) ...[
                       // Belum follow komunitas manapun -- tidak bisa posting
                       // sebelum follow/bikin komunitas dulu
@@ -166,7 +167,8 @@ class _CommunityPageState extends State<CommunityPage> {
                               ),
                               items: [
                                 ...followedNames.map(
-                                  (c) => DropdownMenuItem(value: c, child: Text(c)),
+                                  (c) => DropdownMenuItem(
+                                      value: c, child: Text(c)),
                                 ),
                                 const DropdownMenuItem(
                                   value: '__browse__',
@@ -234,8 +236,9 @@ class _CommunityPageState extends State<CommunityPage> {
                             final content = contentCtrl.text.trim();
 
                             // ==== LAPIS 1: cek toxicity/insult/dll (blokir keras) ====
-                            final moderation = await ContentModerationService
-                                .checkToxicity('$title. $content');
+                            final moderation =
+                                await ContentModerationService.checkToxicity(
+                                    '$title. $content');
                             if (!moderation.isAllowed) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -260,7 +263,8 @@ class _CommunityPageState extends State<CommunityPage> {
                             final offTopic = community.isNotEmpty &&
                                 ContentModerationService.looksOffTopic(
                                   communityName: community.first.name,
-                                  communityDescription: community.first.description,
+                                  communityDescription:
+                                      community.first.description,
                                   communityRules: community.first.rules,
                                   content: '$title $content',
                                 );
@@ -268,19 +272,24 @@ class _CommunityPageState extends State<CommunityPage> {
                               final proceed = await showDialog<bool>(
                                 context: ctx,
                                 builder: (dctx) => AlertDialog(
-                                  title: const Text('Sepertinya di luar topik?'),
+                                  title: const Text(
+                                    'Konfirmasi Kesesuaian Topik',
+                                  ),
                                   content: Text(
-                                    'Postingan ini kelihatannya kurang nyambung dengan '
-                                    'topik komunitas "$selectedCommunity". Tetap lanjut posting?',
+                                    'Postingan Anda terdeteksi tidak sesuai dengan '
+                                    'topik komunitas "$selectedCommunity". Apakah Anda '
+                                    'tetap ingin melanjutkan posting?',
                                   ),
                                   actions: [
                                     TextButton(
-                                      onPressed: () => Navigator.pop(dctx, false),
-                                      child: const Text('Edit dulu'),
+                                      onPressed: () =>
+                                          Navigator.pop(dctx, false),
+                                      child: const Text('Kembali mengedit'),
                                     ),
                                     ElevatedButton(
-                                      onPressed: () => Navigator.pop(dctx, true),
-                                      child: const Text('Tetap Posting'),
+                                      onPressed: () =>
+                                          Navigator.pop(dctx, true),
+                                      child: const Text('Tetap lanjutkan'),
                                     ),
                                   ],
                                 ),
@@ -316,7 +325,8 @@ class _CommunityPageState extends State<CommunityPage> {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Gagal mengirim postingan: $e'),
+                                    content:
+                                        Text('Gagal mengirim postingan: $e'),
                                     backgroundColor: Colors.red[400],
                                   ),
                                 );
@@ -364,7 +374,9 @@ class _CommunityPageState extends State<CommunityPage> {
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primary : Colors.transparent,
           border: Border.all(
-            color: isSelected ? AppTheme.primary : (isDark ? Colors.white24 : Colors.grey[300]!),
+            color: isSelected
+                ? AppTheme.primary
+                : (isDark ? Colors.white24 : Colors.grey[300]!),
           ),
           borderRadius: BorderRadius.circular(20),
         ),
@@ -373,7 +385,9 @@ class _CommunityPageState extends State<CommunityPage> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: isSelected ? Colors.white : (isDark ? Colors.white60 : Colors.grey[600]),
+            color: isSelected
+                ? Colors.white
+                : (isDark ? Colors.white60 : Colors.grey[600]),
           ),
         ),
       ),
@@ -400,9 +414,23 @@ class _CommunityPageState extends State<CommunityPage> {
     final followedNames = state.followedCommunities.map((c) => c.name).toList();
     // Filter postingan: "Semua" = gabungan semua komunitas yang diikuti (mirip
     // feed "Following" di X), bukan seluruh post di semua komunitas yang ada
+    final currentUserId = SupabaseService().currentUser?.id;
+    final followedNamesNormalized =
+        followedNames.map((name) => name.trim().toLowerCase()).toSet();
     final filteredPosts = _selectedCommunity == 'All'
-        ? state.posts.where((p) => followedNames.contains(p.community)).toList()
-        : state.posts.where((p) => p.community == _selectedCommunity).toList();
+        ? state.posts.where((post) {
+            final isOwnPost = post.userId == currentUserId;
+            final isFollowedCommunity = followedNamesNormalized
+                .contains(post.community.trim().toLowerCase());
+            return isOwnPost || isFollowedCommunity;
+          }).toList()
+        : state.posts
+            .where(
+              (post) =>
+                  post.community.trim().toLowerCase() ==
+                  _selectedCommunity.trim().toLowerCase(),
+            )
+            .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -431,12 +459,14 @@ class _CommunityPageState extends State<CommunityPage> {
                     onTap: () => _openCommunityBrowser(context),
                     child: Container(
                       margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         border: Border.all(color: AppTheme.primary),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Icon(Icons.add, size: 18, color: AppTheme.primary),
+                      child: const Icon(Icons.add,
+                          size: 18, color: AppTheme.primary),
                     ),
                   ),
                 ],
@@ -490,9 +520,20 @@ class _CommunityPageState extends State<CommunityPage> {
                                 children: [
                                   Row(
                                     children: [
-                                      AvatarWidget(
-                                        avatar: post.userAvatar,
-                                        radius: 16,
+                                      GestureDetector(
+                                        onTap: () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => SellerShopPage(
+                                              sellerId: post.userId,
+                                              initialSellerName: post.userName,
+                                            ),
+                                          ),
+                                        ),
+                                        child: AvatarWidget(
+                                          avatar: post.userAvatar,
+                                          radius: 16,
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
@@ -544,17 +585,21 @@ class _CommunityPageState extends State<CommunityPage> {
                                       ),
                                       // Menu titik tiga: block user / laporkan
                                       // (disembunyikan untuk post milik sendiri)
-                                      if (post.userId != SupabaseService().currentUser?.id)
+                                      if (post.userId !=
+                                          SupabaseService().currentUser?.id)
                                         PopupMenuButton<String>(
                                           padding: EdgeInsets.zero,
                                           icon: Icon(
                                             Icons.more_vert,
                                             size: 16,
-                                            color: isDark ? Colors.white38 : Colors.grey[400],
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey[400],
                                           ),
                                           onSelected: (value) {
                                             if (value == 'block') {
-                                              _confirmBlockUser(context, post.userId, post.userName);
+                                              _confirmBlockUser(context,
+                                                  post.userId, post.userName);
                                             } else if (value == 'report') {
                                               _showReportDialog(context, post);
                                             }
@@ -578,17 +623,22 @@ class _CommunityPageState extends State<CommunityPage> {
                                           icon: Icon(
                                             Icons.more_vert,
                                             size: 16,
-                                            color: isDark ? Colors.white38 : Colors.grey[400],
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey[400],
                                           ),
                                           onSelected: (value) {
                                             if (value == 'delete') {
-                                              _confirmDeletePost(context, post.id);
+                                              _confirmDeletePost(
+                                                  context, post.id);
                                             }
                                           },
                                           itemBuilder: (ctx) => const [
                                             PopupMenuItem(
                                               value: 'delete',
-                                              child: Text('Hapus postingan', style: TextStyle(color: Colors.red)),
+                                              child: Text('Hapus postingan',
+                                                  style: TextStyle(
+                                                      color: Colors.red)),
                                             ),
                                           ],
                                         ),
@@ -641,13 +691,16 @@ class _CommunityPageState extends State<CommunityPage> {
                                       const SizedBox(width: 12),
                                       // Downvote
                                       GestureDetector(
-                                        onTap: () => state.voteOnPost(post.id, -1),
+                                        onTap: () =>
+                                            state.voteOnPost(post.id, -1),
                                         child: Icon(
                                           Icons.arrow_downward,
                                           size: 15,
                                           color: post.myVote == -1
                                               ? Colors.blueAccent
-                                              : (isDark ? Colors.white38 : Colors.grey[400]),
+                                              : (isDark
+                                                  ? Colors.white38
+                                                  : Colors.grey[400]),
                                         ),
                                       ),
                                       const SizedBox(width: 4),
@@ -660,19 +713,24 @@ class _CommunityPageState extends State<CommunityPage> {
                                               ? AppTheme.primary
                                               : post.myVote == -1
                                                   ? Colors.blueAccent
-                                                  : (isDark ? Colors.white38 : Colors.grey[400]),
+                                                  : (isDark
+                                                      ? Colors.white38
+                                                      : Colors.grey[400]),
                                         ),
                                       ),
                                       const SizedBox(width: 4),
                                       // Upvote
                                       GestureDetector(
-                                        onTap: () => state.voteOnPost(post.id, 1),
+                                        onTap: () =>
+                                            state.voteOnPost(post.id, 1),
                                         child: Icon(
                                           Icons.arrow_upward,
                                           size: 15,
                                           color: post.myVote == 1
                                               ? AppTheme.primary
-                                              : (isDark ? Colors.white38 : Colors.grey[400]),
+                                              : (isDark
+                                                  ? Colors.white38
+                                                  : Colors.grey[400]),
                                         ),
                                       ),
                                     ],
@@ -703,9 +761,11 @@ class _CommunityPageState extends State<CommunityPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hapus postingan ini?'),
-        content: const Text('Postingan ini akan dihapus permanen dan tidak bisa dikembalikan.'),
+        content: const Text(
+            'Postingan ini akan dihapus permanen dan tidak bisa dikembalikan.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
@@ -715,7 +775,9 @@ class _CommunityPageState extends State<CommunityPage> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                    SnackBar(
+                        content:
+                            Text(e.toString().replaceFirst('Exception: ', ''))),
                   );
                 }
               }
@@ -732,9 +794,11 @@ class _CommunityPageState extends State<CommunityPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Block user ini?'),
-        content: Text('Postingan @$userName tidak akan muncul lagi di feed kamu.'),
+        content:
+            Text('Postingan @$userName tidak akan muncul lagi di feed kamu.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -748,7 +812,9 @@ class _CommunityPageState extends State<CommunityPage> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                    SnackBar(
+                        content:
+                            Text(e.toString().replaceFirst('Exception: ', ''))),
                   );
                 }
               }
@@ -789,7 +855,8 @@ class _CommunityPageState extends State<CommunityPage> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -797,17 +864,23 @@ class _CommunityPageState extends State<CommunityPage> {
                 await context.read<AppState>().reportContent(
                       reportedUserId: post.userId,
                       postId: post.id,
-                      reason: reasonCtrl.text.trim().isEmpty ? null : reasonCtrl.text.trim(),
+                      reason: reasonCtrl.text.trim().isEmpty
+                          ? null
+                          : reasonCtrl.text.trim(),
                     );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Laporan terkirim. Terima kasih sudah menjaga komunitas.')),
+                    const SnackBar(
+                        content: Text(
+                            'Laporan terkirim. Terima kasih sudah menjaga komunitas.')),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                    SnackBar(
+                        content:
+                            Text(e.toString().replaceFirst('Exception: ', ''))),
                   );
                 }
               }
@@ -956,9 +1029,8 @@ class _ConversationBottomSheetState extends State<ConversationBottomSheet> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF3D2040)
-                            : AppTheme.blush,
+                        color:
+                            isDark ? const Color(0xFF3D2040) : AppTheme.blush,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -997,9 +1069,22 @@ class _ConversationBottomSheetState extends State<ConversationBottomSheet> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              AvatarWidget(
-                                avatar: senderAvatar,
-                                radius: 14,
+                              GestureDetector(
+                                onTap: senderProfile?['id'] == null
+                                    ? null
+                                    : () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => SellerShopPage(
+                                              sellerId: senderProfile!['id']
+                                                  .toString(),
+                                              initialSellerName:
+                                                  senderName.toString(),
+                                            ),
+                                          ),
+                                        ),
+                                child: AvatarWidget(
+                                    avatar: senderAvatar, radius: 14),
                               ),
                               const SizedBox(width: 8),
                               Expanded(

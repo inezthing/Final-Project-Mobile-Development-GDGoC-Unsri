@@ -51,11 +51,31 @@ async function getAccessToken(serviceAccount: ServiceAccount): Promise<string> {
 
   // private_key dari JSON itu formatnya PEM -- perlu di-strip header/footer-nya
   // dan di-decode dari base64 sebelum bisa dipakai Web Crypto API.
-  const pemBody = serviceAccount.private_key
-    .replace('-----BEGIN PRIVATE KEY-----', '')
-    .replace('-----END PRIVATE KEY-----', '')
-    .replace(/\s/g, '');
+  if (!serviceAccount.private_key || !serviceAccount.client_email || !serviceAccount.project_id) {
+    throw new Error(
+      'FIREBASE_SERVICE_ACCOUNT harus berisi client_email, project_id, dan private_key.',
+    );
+  }
+
+  // Supabase secrets kadang menyimpan newline PEM sebagai karakter "\\n".
+  const normalizedPem = serviceAccount.private_key.replace(/\\n/g, '\n').trim();
+  const pemMatch = normalizedPem.match(
+    /-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/,
+  );
+  if (!pemMatch?.[1]) {
+    throw new Error(
+      'private_key Firebase tidak berformat PKCS#8. Isi secret dengan JSON service account Firebase lengkap.',
+    );
+  }
+
+  const pemBody = pemMatch[1].replace(/\s/g, '');
+  if (!pemBody) {
+    throw new Error('private_key Firebase kosong di secret FIREBASE_SERVICE_ACCOUNT.');
+  }
   const binaryKey = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
+  if (binaryKey.length === 0) {
+    throw new Error('private_key Firebase tidak berisi data kunci yang dapat dibaca.');
+  }
 
   const cryptoKey = await crypto.subtle.importKey(
     'pkcs8',
@@ -95,10 +115,12 @@ Deno.serve(async (req: Request) => {
 
     // Pakai service role key (bukan anon key) supaya bisa baca device_tokens
     // siapapun -- ini jalan di server, bukan di HP user, jadi aman.
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Supabase URL/service role secret tidak tersedia di Edge Function.');
+    }
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: tokens, error } = await supabase
       .from('device_tokens')
@@ -115,9 +137,11 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const serviceAccount: ServiceAccount = JSON.parse(
-      Deno.env.get('FIREBASE_SERVICE_ACCOUNT')!,
-    );
+    const firebaseServiceAccount = Deno.env.get('FIREBASE_SERVICE_ACCOUNT');
+    if (!firebaseServiceAccount) {
+      throw new Error('Secret FIREBASE_SERVICE_ACCOUNT belum disetel.');
+    }
+    const serviceAccount: ServiceAccount = JSON.parse(firebaseServiceAccount);
     const accessToken = await getAccessToken(serviceAccount);
 
     // Kirim ke SEMUA device milik user ini (jaga-jaga dia login di >1 HP)
@@ -149,10 +173,15 @@ Deno.serve(async (req: Request) => {
         },
       );
       const fcmJson = await fcmRes.json();
-      results.push({ token: fcm_token, ok: fcmRes.ok, response: fcmJson });
+      // Jangan masukkan FCM token ke body response/log Edge Function.
+      results.push({ ok: fcmRes.ok, response: fcmJson });
     }
 
-    return new Response(JSON.stringify({ results }), { status: 200 });
+    const failedCount = results.filter((result) => !result.ok).length;
+    return new Response(
+      JSON.stringify({ results, failed: failedCount }),
+      { status: failedCount > 0 ? 502 : 200 },
+    );
   } catch (e) {
     console.error('send-push error:', e);
     return new Response(JSON.stringify({ error: String(e) }), { status: 500 });

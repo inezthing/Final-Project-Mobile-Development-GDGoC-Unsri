@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import 'seller_product_edit_page.dart';
 import 'seller_shop_page.dart';
 import 'chat_room_page.dart';
+import 'order_detail_page.dart';
 
 class DetailPage extends StatefulWidget {
   final Product product;
@@ -33,7 +34,9 @@ class _DetailPageState extends State<DetailPage> {
     }
     if (api.currentUser!.id == product.sellerId) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ini produkmu sendiri, tidak bisa chat diri sendiri.')),
+        const SnackBar(
+            content:
+                Text('Ini produkmu sendiri, tidak bisa chat diri sendiri.')),
       );
       return;
     }
@@ -57,6 +60,7 @@ class _DetailPageState extends State<DetailPage> {
             productId: product.id,
             productPrice: product.price,
             sellerId: product.sellerId,
+            otherUserId: product.sellerId,
           ),
         ),
       );
@@ -111,28 +115,27 @@ class _DetailPageState extends State<DetailPage> {
                                 radix: 16,
                               ),
                             ),
-                            child:
-                                product.imageUrl != null &&
+                            child: product.imageUrl != null &&
                                     product.imageUrl!.isNotEmpty
                                 ? Image.network(
                                     product.imageUrl!,
                                     fit: BoxFit.cover,
                                     loadingBuilder:
                                         (context, child, loadingProgress) {
-                                          if (loadingProgress == null) {
-                                            return child;
-                                          }
-                                          return const Center(
-                                            child: SizedBox(
-                                              width: 40,
-                                              height: 40,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 3,
-                                                color: AppTheme.primary,
-                                              ),
-                                            ),
-                                          );
-                                        },
+                                      if (loadingProgress == null) {
+                                        return child;
+                                      }
+                                      return const Center(
+                                        child: SizedBox(
+                                          width: 40,
+                                          height: 40,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 3,
+                                            color: AppTheme.primary,
+                                          ),
+                                        ),
+                                      );
+                                    },
                                     errorBuilder: (context, error, stackTrace) {
                                       return Center(
                                         child: Text(
@@ -209,7 +212,6 @@ class _DetailPageState extends State<DetailPage> {
                         ),
                       ],
                     ),
-
                     Container(
                       color: bgColor,
                       padding: const EdgeInsets.all(20),
@@ -253,7 +255,6 @@ class _DetailPageState extends State<DetailPage> {
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 12),
                           Wrap(
                             spacing: 8,
@@ -282,13 +283,11 @@ class _DetailPageState extends State<DetailPage> {
                                 ),
                             ],
                           ),
-
                           const SizedBox(height: 16),
                           Divider(
                             color: isDark ? Colors.white12 : Colors.grey[200],
                           ),
                           const SizedBox(height: 12),
-
                           Text(
                             'Deskripsi',
                             style: TextStyle(
@@ -306,13 +305,11 @@ class _DetailPageState extends State<DetailPage> {
                               height: 1.6,
                             ),
                           ),
-
                           const SizedBox(height: 16),
                           Divider(
                             color: isDark ? Colors.white12 : Colors.grey[200],
                           ),
                           const SizedBox(height: 12),
-
                           Text(
                             'Metode Pembayaran',
                             style: TextStyle(
@@ -348,13 +345,11 @@ class _DetailPageState extends State<DetailPage> {
                                 )
                                 .toList(),
                           ),
-
                           const SizedBox(height: 16),
                           Divider(
                             color: isDark ? Colors.white12 : Colors.grey[200],
                           ),
                           const SizedBox(height: 12),
-
                           Row(
                             children: [
                               GestureDetector(
@@ -395,7 +390,8 @@ class _DetailPageState extends State<DetailPage> {
                                     ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
@@ -433,15 +429,16 @@ class _DetailPageState extends State<DetailPage> {
                               Icon(
                                 Icons.chevron_right,
                                 size: 20,
-                                color: isDark ? Colors.white38 : Colors.grey[400],
+                                color:
+                                    isDark ? Colors.white38 : Colors.grey[400],
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 16),
                           GestureDetector(
-                            onTap:
-                                _isOpeningChat ? null : () => _openChat(product),
+                            onTap: _isOpeningChat
+                                ? null
+                                : () => _openChat(product),
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
@@ -486,7 +483,6 @@ class _DetailPageState extends State<DetailPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 20),
                         ],
                       ),
@@ -495,7 +491,6 @@ class _DetailPageState extends State<DetailPage> {
                 ),
               ),
             ),
-
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
@@ -513,8 +508,8 @@ class _DetailPageState extends State<DetailPage> {
                   Expanded(
                     child: Builder(builder: (context) {
                       final api = SupabaseService();
-                      final isOwnProduct =
-                          api.currentUser != null && api.currentUser!.id == product.sellerId;
+                      final isOwnProduct = api.currentUser != null &&
+                          api.currentUser!.id == product.sellerId;
 
                       if (isOwnProduct) {
                         // Seller lihat produk jualannya sendiri -> tidak
@@ -525,7 +520,8 @@ class _DetailPageState extends State<DetailPage> {
                           onPressed: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => SellerProductEditPage(product: product),
+                              builder: (_) =>
+                                  SellerProductEditPage(product: product),
                             ),
                           ),
                           icon: const Icon(Icons.edit_outlined, size: 18),
@@ -537,39 +533,103 @@ class _DetailPageState extends State<DetailPage> {
                         );
                       }
 
-                      return ElevatedButton.icon(
-                        onPressed: () async {
-                          try {
-                            await context.read<AppState>().addToCart(product);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('Ditambahkan ke keranjang! 🛍️'),
-                                  backgroundColor: AppTheme.primary,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(e.toString().replaceFirst('Exception: ', '')),
-                                  backgroundColor: Colors.red[400],
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                        label: const Text('Masukkan Keranjang'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                try {
+                                  await context
+                                      .read<AppState>()
+                                      .addToCart(product);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                            'Ditambahkan ke keranjang! 🛍️'),
+                                        backgroundColor: AppTheme.primary,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(e
+                                            .toString()
+                                            .replaceFirst('Exception: ', '')),
+                                        backgroundColor: Colors.red[400],
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              icon:
+                                  const Icon(Icons.add_shopping_cart, size: 18),
+                              label: const Text('Keranjang'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 14, horizontal: 8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                final state = context.read<AppState>();
+                                try {
+                                  final existing = state.cart
+                                      .where((i) => i.product.id == product.id)
+                                      .toList();
+                                  CartItem? item =
+                                      existing.isEmpty ? null : existing.first;
+                                  if (item == null) {
+                                    await state.addToCart(product);
+                                    final added = state.cart
+                                        .where(
+                                            (i) => i.product.id == product.id)
+                                        .toList();
+                                    item = added.isEmpty ? null : added.first;
+                                  }
+                                  if (item == null)
+                                    throw Exception(
+                                        'Produk gagal disiapkan untuk checkout.');
+                                  if (!context.mounted) return;
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            OrderDetailPage(items: [item!])),
+                                  );
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(e
+                                              .toString()
+                                              .replaceFirst(
+                                                  'Exception: ', ''))),
+                                    );
+                                  }
+                                }
+                              },
+                              icon:
+                                  const Icon(Icons.flash_on_outlined, size: 18),
+                              label: const Text('Beli Sekarang'),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 14, horizontal: 8),
+                              ),
+                            ),
+                          ),
+                        ],
                       );
                     }),
                   ),

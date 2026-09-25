@@ -8,6 +8,8 @@ import 'seller_product_edit_page.dart';
 import 'settings_page.dart';
 import 'chat_list_page.dart';
 import '../data/supabase_service.dart';
+import 'order_list_page.dart';
+import 'seller_orders_page.dart';
 
 // Halaman profil: info user, statistik, produk & postingan milik sendiri
 class ProfilePage extends StatelessWidget {
@@ -37,8 +39,7 @@ class ProfilePage extends StatelessWidget {
           state.userProfile?['location'],
           fallback: 'Belum diisi',
         );
-        final avatarUrl =
-            (state.userProfile?['avatar_url'] as String?) ?? '🐰';
+        final avatarUrl = (state.userProfile?['avatar_url'] as String?) ?? '🐰';
 
         return Scaffold(
           body: SafeArea(
@@ -218,6 +219,72 @@ class ProfilePage extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+
+                  // Shortcut to order tracking, available directly from profile.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Color(0xFFFFE7F2),
+                          child: Icon(
+                            Icons.local_shipping_outlined,
+                            color: AppTheme.primary,
+                          ),
+                        ),
+                        title: const Text(
+                          'Pesanan Saya',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: const Text('Lihat dan lacak status pesanan'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${state.myOrders.length}',
+                              style: const TextStyle(
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const OrderListPage(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Color(0xFFEDE7F6),
+                          child: Icon(Icons.storefront_outlined,
+                              color: AppTheme.primary),
+                        ),
+                        title: const Text('Pesanan Masuk',
+                            style: TextStyle(fontWeight: FontWeight.w800)),
+                        subtitle:
+                            const Text('Kelola pesanan dari pembeli di tokomu'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SellerOrdersPage()),
+                        ),
+                      ),
                     ),
                   ),
 
