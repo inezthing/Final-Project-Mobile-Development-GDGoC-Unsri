@@ -124,7 +124,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       setState(() {
         _suggestions =
             result.status == SmartReplySuggestionResultStatus.success
-                ? result.suggestions.map((s) => s.text).take(3).toList()
+                ? result.suggestions.take(3).toList()
                 : [];
       });
     } catch (e) {

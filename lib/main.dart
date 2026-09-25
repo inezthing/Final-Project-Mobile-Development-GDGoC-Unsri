@@ -14,9 +14,6 @@ import 'theme/app_theme.dart';
 import 'pages/login_page.dart';
 import 'pages/main_navigation.dart';
 import 'pages/email_verified_page.dart';
-import 'firebase_options.dart';
-...
-await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
 // Navigator key global -- dipakai supaya deep link (link verifikasi email)
 // bisa langsung buka halaman "Akun Terhubung" dari MANAPUN posisi user
@@ -63,6 +60,18 @@ void main() async {
   // Inisialisasi Firebase (WAJIB ada file firebase_options.dart hasil
   // `flutterfire configure` + google-services.json/GoogleService-Info.plist
   // -- lihat panduan setup. Tanpa ini, push notification tidak akan jalan).
+  //
+  // CATATAN: begitu `flutterfire configure` berhasil dan file
+  // lib/firebase_options.dart sudah muncul, ganti baris
+  // `await Firebase.initializeApp();` di bawah jadi:
+  //
+  //   import 'firebase_options.dart';   <-- taruh di bagian import atas
+  //   ...
+  //   await Firebase.initializeApp(
+  //     options: DefaultFirebaseOptions.currentPlatform,
+  //   );
+  //
+  // Sebelum file itu ada, JANGAN diubah -- biarkan polos seperti ini.
   try {
     await Firebase.initializeApp();
     // Handler push waktu app lagi background/terminated, WAJIB didaftarkan
@@ -120,21 +129,23 @@ class _AppRootState extends State<_AppRoot> {
 
   // Dengerin perubahan status auth dari Supabase (JWT access token cuma
   // hidup ~1 jam, tapi biasanya auto-refresh diam-diam pakai refresh token
-  // -- lihat `autoRefreshToken: true` di main()). Yang kita tangani KHUSUS
-  // di sini cuma kasus refresh token-nya sendiri sudah tidak valid lagi
-  // (`tokenRefreshFailed`): misal user ganti password dari device lain,
-  // akun di-suspend, atau refresh token sudah lama sekali tidak dipakai.
-  // Tanpa listener ini, user bakal keliatan "diam" di halaman yang lagi
-  // dibuka padahal semua request ke server bakal gagal 401 -- jadi wajib
-  // dipaksa balik ke Login dengan pesan yang jelas.
+  // -- lihat `autoRefreshToken: true` di main()). Kalau refresh token-nya
+  // sendiri sudah tidak valid lagi (misal user ganti password dari device
+  // lain, akun di-suspend, atau refresh token sudah lama tidak dipakai),
+  // Supabase SDK otomatis mengeluarkan event `signedOut` juga -- jadi event
+  // ini menangkap DUA kasus sekaligus: logout manual dan sesi yang mati
+  // sendiri. Tanpa listener ini, untuk kasus kedua user bakal keliatan
+  // "diam" di halaman yang lagi dibuka padahal semua request ke server
+  // bakal gagal 401.
   //
-  // Sengaja TIDAK menangani event `signedOut` di sini, karena logout
-  // manual (lihat SettingsPage) sudah nge-handle navigasinya sendiri --
-  // kalau dobel ditangani di sini juga, halaman Login bisa ke-push 2x.
+  // Efek sampingnya: kalau logout manual dari SettingsPage (yang juga sudah
+  // navigasi sendiri), halaman Login bisa "ke-push" dua kali beruntun --
+  // ini tidak berbahaya (tampilannya sama persis, cuma dobel di balik
+  // layar), jadi sengaja dibiarkan demi kesederhanaan.
   void _initAuthListener() {
     _authSubscription =
         Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event != AuthChangeEvent.tokenRefreshFailed) return;
+      if (data.event != AuthChangeEvent.signedOut) return;
       final ctx = navigatorKey.currentContext;
       if (ctx == null) return;
       ctx.read<AppState>().handleSessionExpired();

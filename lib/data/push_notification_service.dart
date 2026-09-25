@@ -58,7 +58,7 @@ class PushNotificationService {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings();
     await _localNotifs.initialize(
-      const InitializationSettings(android: androidInit, iOS: iosInit),
+      settings: const InitializationSettings(android: androidInit, iOS: iosInit),
       // Tap notif LOKAL (yang kita tampilkan manual pas foreground)
       onDidReceiveNotificationResponse: (response) {
         final raw = response.payload;
@@ -78,10 +78,11 @@ class PushNotificationService {
       final n = message.notification;
       if (n == null) return;
       _localNotifs.show(
-        message.hashCode,
-        n.title,
-        n.body,
-        const NotificationDetails(android: _channel, iOS: DarwinNotificationDetails()),
+        id: message.hashCode,
+        title: n.title,
+        body: n.body,
+        notificationDetails:
+            const NotificationDetails(android: _channel, iOS: DarwinNotificationDetails()),
         payload: jsonEncode(message.data),
       );
     });
