@@ -4,7 +4,6 @@
 
 Whimsify adalah aplikasi marketplace barang preloved dan komunitas kolektor. Aplikasi dibuat dengan Flutter, Supabase, dan Firebase Cloud Messaging.
 
-![Logo Whimsify](assets/branding/whimsify_logo.jpeg)
 
 ## Fitur yang tersedia
 
